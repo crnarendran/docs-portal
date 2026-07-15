@@ -116,7 +116,7 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
               >
                 <span>{section}</span>
                 <svg
-                  className={`w-4 h-4 transition-transform duration-200 ${isSectionCollapsed ? '-rotate-90' : 'rotate-0'}`}
+                  className={"w-4 h-4 transition-transform duration-200 " + (isSectionCollapsed ? "-rotate-90" : "rotate-0")}
                   fill="none" viewBox="0 0 24 24" stroke="currentColor"
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -140,7 +140,7 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
                         >
                           <span>{group}</span>
                           <svg
-                            className={`w-3 h-3 transition-transform duration-200 ${isGroupCollapsed ? '-rotate-90' : 'rotate-0'}`}
+                            className={"w-3 h-3 transition-transform duration-200 " + (isGroupCollapsed ? "-rotate-90" : "rotate-0")}
                             fill="none" viewBox="0 0 24 24" stroke="currentColor"
                           >
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -179,7 +179,7 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
                         >
                           <span>{group}</span>
                           <svg
-                            className={`w-3 h-3 transition-transform duration-200 ${isGroupCollapsed ? '-rotate-90' : 'rotate-0'}`}
+                            className={"w-3 h-3 transition-transform duration-200 " + (isGroupCollapsed ? "-rotate-90" : "rotate-0")}
                             fill="none" viewBox="0 0 24 24" stroke="currentColor"
                           >
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
