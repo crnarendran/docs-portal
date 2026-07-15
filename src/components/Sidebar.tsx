@@ -8,6 +8,7 @@ export interface SidebarLink {
   slug: string;
   title: string;
   isInternal: boolean;
+  category?: string;
 }
 
 const GROUPS: Record<string, string> = {
@@ -85,7 +86,14 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
     if (parts[0] === 'user_guides') section = 'User Guide';
     else if (parts[0] === 'support') section = 'Support';
 
-    const group = GROUPS[link.slug] || 'Misc';
+    let group = link.category || GROUPS[link.slug];
+    if (!group) {
+        if (parts.length === 3 && parts[0] === 'support') {
+           group = parts[1].replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        } else {
+           group = 'Misc';
+        }
+    }
 
     if (!tree[section]) tree[section] = {};
     if (!tree[section][group]) tree[section][group] = [];
@@ -165,7 +173,7 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
                   })}
                   
                   {/* Render Misc groups that weren't in the explicit order */}
-                  {Object.keys(tree[section]).filter(g => !GROUP_ORDER.includes(g)).map(group => {
+                  {Object.keys(tree[section]).filter(g => !GROUP_ORDER.includes(g)).sort().map(group => {
                     const isGroupCollapsed = collapsedGroups[group] === undefined ? true : collapsedGroups[group];
                     const groupLinks = tree[section][group].filter(link => !link.isInternal || isSupport);
                     

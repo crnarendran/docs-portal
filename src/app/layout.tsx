@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Docs Portal",
+  title: "Sanjeev AI Documentation Portal",
   description: "Unified Documentation Portal",
 };
 
@@ -30,7 +30,8 @@ export default function RootLayout({
   const sidebarLinks = docs.map(d => ({
     slug: d.slug,
     title: d.meta.title || d.slug,
-    isInternal: d.meta.isInternal === true || d.meta.isInternal === 'true'
+    isInternal: d.meta.isInternal === true || d.meta.isInternal === 'true',
+    category: d.meta.category
   }));
 
   return (
