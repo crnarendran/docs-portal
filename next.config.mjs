@@ -6,12 +6,8 @@ const workspaceRoot = join(__dirname, "..");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: "standalone",
-  outputFileTracingRoot: workspaceRoot,
-  turbopack: {
-    root: workspaceRoot,
-  },
-  allowedDevOrigins: ["127.0.0.1"],
+  output: "export",
+  images: { unoptimized: true },
 };
 
 export default nextConfig;
