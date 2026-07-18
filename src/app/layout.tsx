@@ -18,6 +18,7 @@ export const metadata: Metadata = {
   description: "Unified Documentation Portal",
 };
 
+import { Suspense } from "react";
 import { AuthProvider } from "@/context/AuthContext";
 import { getAllDocs } from "@/lib/mdx";
 
@@ -41,7 +42,9 @@ export default function RootLayout({
     >
       <body className="min-h-full flex bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100">
         <AuthProvider>
-          <Sidebar links={sidebarLinks} />
+          <Suspense fallback={<aside className="w-72 h-screen bg-zinc-950" />}>
+            <Sidebar links={sidebarLinks} />
+          </Suspense>
           <main className="flex-1 overflow-auto bg-white dark:bg-black p-8">
             <div className="max-w-4xl mx-auto">
               {children}
