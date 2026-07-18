@@ -1,32 +1,14 @@
 {
   "name": "docs-portal",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "@tailwindcss/typography": "^0.5.20",
-    "firebase": "^12.16.0",
-    "gray-matter": "^4.0.3",
-    "mermaid": "^11.16.0",
-    "next": "16.2.10",
-    "next-mdx-remote": "^6.0.0",
-    "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "docs:dev": "vitepress dev",
+    "docs:build": "vitepress build",
+    "docs:preview": "vitepress preview"
   },
   "devDependencies": {
-    "@playwright/test": "^1.61.1",
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.10",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "vitepress": "^1.5.0",
+    "vue": "^3.5.0"
   }
 }
