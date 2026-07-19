@@ -31,8 +31,10 @@ export default function RootLayout({
   const sidebarLinks = docs.map(d => ({
     slug: d.slug,
     title: d.meta.title || d.slug,
-    isInternal: d.meta.isInternal === true || d.meta.isInternal === 'true',
-    category: d.meta.category
+    isInternal: d.meta.isInternal === true || String(d.meta.isInternal) === 'true',
+    section: d.meta.section,
+    category: d.meta.category,
+    requiresLogin: d.meta.requiresLogin === true,
   }));
 
   return (

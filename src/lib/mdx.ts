@@ -8,6 +8,9 @@ const docsDirectory = path.join(process.cwd(), '../docs');
 export interface DocMeta {
   title: string;
   date?: string;
+  section?: string;
+  category?: string;
+  requiresLogin?: boolean;
   [key: string]: any;
 }
 
@@ -39,7 +42,8 @@ export const getDocSlugs = (): string[][] => {
       } else if (file.endsWith('.md') || file.endsWith('.mdx')) {
         const relativePath = path.relative(baseDir, filepath);
         // Remove extension
-        const slug = relativePath.replace(/\.mdx?$/, '');
+        // Replace Windows backslashes with forward slashes to ensure consistent slugs
+        const slug = relativePath.replace(/\.mdx?$/, '').replace(/\\/g, '/');
         filelist.push(slug);
       }
     });
@@ -47,7 +51,7 @@ export const getDocSlugs = (): string[][] => {
   };
 
   const allFiles = walkSync(dir);
-  return allFiles.map(slug => slug.split(path.sep)); // return array of path segments
+  return allFiles.map(slug => slug.split('/')); // return array of path segments
 };
 
 export const getDocBySlug = (slugArray: string[]): Doc | null => {
@@ -80,7 +84,13 @@ export const getDocBySlug = (slugArray: string[]): Doc | null => {
 
   return {
     slug: realSlug,
-    meta: data as DocMeta,
+    meta: {
+      title: String(data.title || realSlug),
+      section: String(data.section || 'Other'),
+      category: String(data.category || 'Misc'),
+      requiresLogin: data.requiresLogin === true || data.requiresLogin === 'true',
+      ...data
+    } as DocMeta,
     content,
   };
 };

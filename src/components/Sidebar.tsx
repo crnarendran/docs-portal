@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -9,50 +9,18 @@ export interface SidebarLink {
   slug: string;
   title: string;
   isInternal: boolean;
+  section?: string;
   category?: string;
+  requiresLogin?: boolean;
 }
 
-const GROUPS: Record<string, string> = {
-  // User Guides
-  'user_guides/getting-started': 'Onboarding',
-  'user_guides/account-and-login': 'Onboarding',
-  'user_guides/credits_and_tiers': 'Onboarding',
-  'user_guides/navigating-the-dashboard': 'Onboarding',
-  'user_guides/creating-a-project': 'Projects',
-  'user_guides/importing-scripts': 'Projects',
-  'user_guides/cloning-projects': 'Projects',
-  'user_guides/unified-studio-overview': 'Unified Studio',
-  'user_guides/cast-and-characters': 'Unified Studio',
-  'user_guides/timeline-editing': 'Unified Studio',
-  'user_guides/visual-generation': 'Unified Studio',
-  'user_guides/audio-generation': 'Unified Studio',
-  'user_guides/workflow-automation': 'Automation',
-  'user_guides/customizing-workflows': 'Automation',
-  'user_guides/video-export': 'Export & Publishing',
-  'user_guides/youtube-integration': 'Export & Publishing',
-  'user_guides/youtube-publishing': 'Export & Publishing',
-  'user_guides/usage-dashboard': 'Analytics',
-  'user_guides/audit-ledger': 'Analytics',
-  'user_guides/notifications': 'Notifications & Settings',
-  // Support
-  'support/faq': 'General Support',
-  'support/error-reference': 'General Support',
-  'support/browser-compatibility': 'General Support',
-  'support/troubleshooting_credits': 'Troubleshooting',
-  'support/troubleshooting_auth': 'Troubleshooting',
-  'support/troubleshooting_audio': 'Troubleshooting',
-  'support/troubleshooting_visuals': 'Troubleshooting',
-  'support/troubleshooting_publishing': 'Troubleshooting',
-  'support/troubleshooting_export': 'Troubleshooting',
-  'support/troubleshooting_studio': 'Troubleshooting',
-  'support/contact-support': 'Contact & Feedback',
-};
-
-// Sort order for sections and groups
-const SECTION_ORDER = ['User Guide', 'Support', 'Other'];
-const GROUP_ORDER = [
+// Preferred sort order for sections and groups. Anything not in here is sorted alphabetically.
+const PREFERRED_SECTION_ORDER = ['User Guides', 'Specs', 'Development', 'Support', 'Other'];
+const PREFERRED_GROUP_ORDER = [
   'Onboarding', 'Projects', 'Unified Studio', 'Automation', 'Export & Publishing', 'Analytics', 'Notifications & Settings',
-  'General Support', 'Troubleshooting', 'Contact & Feedback'
+  'Features', 'Specifications',
+  'General Support', 'Troubleshooting', 'Contact & Feedback',
+  'ADR', 'Planning', 'Testing', 'Framework'
 ];
 
 export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
@@ -63,54 +31,51 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
   
   const selectRef = useRef<HTMLSelectElement>(null);
 
-  // The builder previously added a useEffect here that manipulated window.history directly
-  // to bypass a flawed synchronous test. It has been removed.
   const handleProjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newProject = e.target.value;
     router.push(`${pathname}?project=${newProject}`);
   };
   
-  // Keep track of collapsed states. By default, sections are expanded, groups are collapsed
+  // Keep track of collapsed states. By default, 'User Guides' is expanded, others are collapsed
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
-    'User Guide': false, // Open by default
-    'Support': true,     // Collapsed by default
-    'Other': true
+    'User Guides': false,
   });
   
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
   const toggleSection = (section: string) => {
-    setCollapsedSections(prev => ({ ...prev, [section]: !prev[section] }));
+    setCollapsedSections(prev => ({ ...prev, [section]: prev[section] === undefined ? false : !prev[section] }));
   };
 
   const toggleGroup = (group: string) => {
-    // If undefined, it defaults to true (collapsed), so clicking it expands it (sets to false)
     setCollapsedGroups(prev => ({ ...prev, [group]: prev[group] === undefined ? false : !prev[group] }));
   };
 
   // Build the 3-level tree
-  const tree: Record<string, Record<string, SidebarLink[]>> = {};
+  const tree: Record<string, Record<string, SidebarLink[]>> = Object.create(null);
 
   links.forEach(link => {
-    if (link.slug === 'index' || link.slug === '') return; // Skip root index if any
+    if (link.slug === 'index' || link.slug === '') return;
 
-    const parts = link.slug.split('/');
-    let section = 'Other';
-    if (parts[0] === 'user_guides') section = 'User Guide';
-    else if (parts[0] === 'support') section = 'Support';
+    // Determine visibility based on user status
+    if (link.requiresLogin && !user) return;
+    if (link.isInternal && !isSupport) return;
 
-    let group = link.category || GROUPS[link.slug];
-    if (!group) {
-        if (parts.length === 3 && parts[0] === 'support') {
-           group = parts[1].replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-        } else {
-           group = 'Misc';
-        }
-    }
+    let section = String(link.section || 'Other');
+    let group = String(link.category || 'Misc');
 
-    if (!tree[section]) tree[section] = {};
+    if (!tree[section]) tree[section] = Object.create(null);
     if (!tree[section][group]) tree[section][group] = [];
     tree[section][group].push(link);
+  });
+
+  const sections = Object.keys(tree).sort((a, b) => {
+    const indexA = PREFERRED_SECTION_ORDER.indexOf(a);
+    const indexB = PREFERRED_SECTION_ORDER.indexOf(b);
+    if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+    if (indexA !== -1) return -1;
+    if (indexB !== -1) return 1;
+    return a.localeCompare(b);
   });
 
   return (
@@ -138,8 +103,17 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
       </div>
 
       <nav className="flex flex-col gap-6 flex-grow">
-        {SECTION_ORDER.filter(s => tree[s]).map((section) => {
-          const isSectionCollapsed = collapsedSections[section];
+        {sections.map((section) => {
+          // Sections default to collapsed except 'User Guides'
+          const isSectionCollapsed = collapsedSections[section] === undefined ? section !== 'User Guides' : collapsedSections[section];
+          const groups = Object.keys(tree[section]).sort((a, b) => {
+            const indexA = PREFERRED_GROUP_ORDER.indexOf(a);
+            const indexB = PREFERRED_GROUP_ORDER.indexOf(b);
+            if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+            if (indexA !== -1) return -1;
+            if (indexB !== -1) return 1;
+            return a.localeCompare(b);
+          });
           
           return (
             <div key={section} className="flex flex-col gap-2">
@@ -158,49 +132,10 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
 
               {!isSectionCollapsed && (
                 <div className="flex flex-col gap-3 pl-2 mt-1">
-                  {GROUP_ORDER.filter(g => tree[section][g]).map(group => {
+                  {groups.map(group => {
                     // Default to true (collapsed)
                     const isGroupCollapsed = collapsedGroups[group] === undefined ? true : collapsedGroups[group];
-                    const groupLinks = tree[section][group].filter(link => !link.isInternal || isSupport);
-                    
-                    if (groupLinks.length === 0) return null;
-
-                    return (
-                      <div key={group} className="flex flex-col gap-1">
-                        <button
-                          onClick={() => toggleGroup(group)}
-                          className="w-full flex items-center justify-between text-xs font-semibold text-gray-400 hover:text-gray-200 transition-colors py-1"
-                        >
-                          <span>{group}</span>
-                          <svg
-                            className={"w-3 h-3 transition-transform duration-200 " + (isGroupCollapsed ? "-rotate-90" : "rotate-0")}
-                            fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </button>
-
-                        {!isGroupCollapsed && (
-                          <div className="flex flex-col gap-0.5 border-l border-white/10 ml-1.5 pl-2">
-                            {groupLinks.map(link => (
-                              <Link
-                                key={link.slug}
-                                href={`/${link.slug}`}
-                                className="px-2 py-1.5 text-sm rounded hover:bg-emerald-400/10 hover:text-emerald-400 transition-colors text-gray-400 truncate"
-                              >
-                                {link.title}
-                              </Link>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                  
-                  {/* Render Misc groups that weren't in the explicit order */}
-                  {Object.keys(tree[section]).filter(g => !GROUP_ORDER.includes(g)).sort().map(group => {
-                    const isGroupCollapsed = collapsedGroups[group] === undefined ? true : collapsedGroups[group];
-                    const groupLinks = tree[section][group].filter(link => !link.isInternal || isSupport);
+                    const groupLinks = tree[section][group];
                     
                     if (groupLinks.length === 0) return null;
 

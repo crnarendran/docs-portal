@@ -3,6 +3,7 @@ import { MDXRemote } from 'next-mdx-remote/rsc';
 import { notFound } from 'next/navigation';
 import { AuthGuard } from '@/components/AuthGuard';
 import { mdxComponents } from '@/components/MDXComponents';
+import { ProtectedDocViewer } from '@/components/ProtectedDocViewer';
 
 export async function generateStaticParams() {
   const docs = getAllDocs();
@@ -24,16 +25,19 @@ export default async function DocPage({
   }
 
   return (
-    <AuthGuard isInternal={doc.meta.isInternal === true}>
-      <article className="prose dark:prose-invert max-w-none prose-emerald">
-
-        {doc.meta.date && (
-          <p className="text-sm text-gray-500 mb-8">{doc.meta.date}</p>
-        )}
-        <div className="mt-8">
-          <MDXRemote source={doc.content} components={mdxComponents} />
-        </div>
-      </article>
+    <AuthGuard isInternal={doc.meta.isInternal === true} requiresLogin={doc.meta.requiresLogin === true}>
+      {doc.meta.requiresLogin === true ? (
+        <ProtectedDocViewer slug={doc.slug} date={doc.meta.date} />
+      ) : (
+        <article className="prose dark:prose-invert max-w-none prose-emerald">
+          {doc.meta.date && (
+            <p className="text-sm text-gray-500 mb-8">{doc.meta.date}</p>
+          )}
+          <div className="mt-8">
+            <MDXRemote source={doc.content} components={mdxComponents} />
+          </div>
+        </article>
+      )}
     </AuthGuard>
   );
 }
