@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, connectAuthEmulator } from "firebase/auth";
+import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "demo-api-key",
@@ -12,11 +13,23 @@ const firebaseConfig = {
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
+const db = getFirestore(app);
 
-// Use local emulators in development
-if (process.env.NODE_ENV === 'development') {
+// Use local emulators in development or when explicitly requested via env
+if (process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_USE_EMULATORS === 'true') {
   const host = typeof window !== "undefined" ? window.location.hostname : "localhost";
-  connectAuthEmulator(auth, `http://${host}:9099`, { disableWarnings: true });
+  
+  // Prevent double-connecting which throws an error
+  if (!auth.emulatorConfig) {
+    connectAuthEmulator(auth, `http://${host}:9099`, { disableWarnings: true });
+  }
+  
+  try {
+    // getFirestore() throws if connected twice, so we wrap in try-catch
+    connectFirestoreEmulator(db, host, 8080);
+  } catch (e) {
+    // Already connected
+  }
 }
 
-export { app, auth };
+export { app, auth, db };

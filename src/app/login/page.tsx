@@ -2,11 +2,16 @@
 
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
 export default function LoginPage() {
   const { login, user, isSupport, loading } = useAuth();
   const router = useRouter();
+  
+  const [testEmail, setTestEmail] = useState('');
+  const [testPassword, setTestPassword] = useState('');
 
   useEffect(() => {
     if (!loading) {
@@ -18,6 +23,17 @@ export default function LoginPage() {
       }
     }
   }, [user, isSupport, loading, router]);
+
+  const handleTestLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await signInWithEmailAndPassword(auth, testEmail, testPassword);
+    } catch (error) {
+      console.error("Test login failed:", error);
+    }
+  };
+
+  const useEmulators = process.env.NEXT_PUBLIC_USE_EMULATORS === 'true';
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh]">
@@ -52,6 +68,39 @@ export default function LoginPage() {
         >
           Sign In with Google
         </button>
+
+        {useEmulators && (
+          <form onSubmit={handleTestLogin} className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700 space-y-4">
+            <p className="text-xs text-center text-gray-500 font-semibold uppercase tracking-wider">Test Login (Emulator Only)</p>
+            <div>
+              <input
+                type="email"
+                placeholder="Email"
+                data-testid="login-email"
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+                className="w-full px-3 py-2 border rounded-md dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+              />
+            </div>
+            <div>
+              <input
+                type="password"
+                placeholder="Password"
+                data-testid="login-password"
+                value={testPassword}
+                onChange={(e) => setTestPassword(e.target.value)}
+                className="w-full px-3 py-2 border rounded-md dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+              />
+            </div>
+            <button
+              type="submit"
+              data-testid="login-submit"
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-600 hover:bg-gray-700 focus:outline-none transition-colors"
+            >
+              Log In
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );

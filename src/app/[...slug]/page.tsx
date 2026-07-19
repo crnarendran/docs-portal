@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { AuthGuard } from '@/components/AuthGuard';
 import { mdxComponents } from '@/components/MDXComponents';
 import { ProtectedDocViewer } from '@/components/ProtectedDocViewer';
+import { HybridDocViewer } from '@/components/HybridDocViewer';
 
 export async function generateStaticParams() {
   const docs = getAllDocs();
@@ -29,14 +30,7 @@ export default async function DocPage({
       {doc.meta.requiresLogin === true ? (
         <ProtectedDocViewer slug={doc.slug} date={doc.meta.date} />
       ) : (
-        <article className="prose dark:prose-invert max-w-none prose-emerald">
-          {doc.meta.date && (
-            <p className="text-sm text-gray-500 mb-8">{doc.meta.date}</p>
-          )}
-          <div className="mt-8">
-            <MDXRemote source={doc.content} components={mdxComponents} />
-          </div>
-        </article>
+        <HybridDocViewer slug={doc.slug} initialContent={doc.content} date={doc.meta.date} />
       )}
     </AuthGuard>
   );

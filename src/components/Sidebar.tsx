@@ -24,7 +24,7 @@ const PREFERRED_GROUP_ORDER = [
 ];
 
 export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
-  const { user, isSupport, logout } = useAuth();
+  const { user, isSupport, isAdmin, accessibleProjects, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -33,7 +33,14 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
 
   const handleProjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newProject = e.target.value;
-    router.push(`${pathname}?project=${newProject}`);
+    const currentEnv = searchParams.get('env') || 'staging';
+    router.push(`${pathname}?project=${newProject}&env=${currentEnv}`);
+  };
+
+  const handleEnvChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newEnv = e.target.value;
+    const currentProject = searchParams.get('project') || 'sanjeev-ai';
+    router.push(`${pathname}?project=${currentProject}&env=${newEnv}`);
   };
   
   // Keep track of collapsed states. By default, 'User Guides' is expanded, others are collapsed
@@ -83,23 +90,48 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
       data-testid="docs-sidebar"
       className="w-72 h-screen bg-zinc-950 text-white flex flex-col p-4 sticky top-0 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-gray-800 border-r border-white/10"
     >
-      <div className="flex flex-col gap-4 mb-8 shrink-0">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-3 mb-8 shrink-0">
+        <div className="flex items-center gap-2 mb-1">
           <div className="w-6 h-6 rounded-full bg-emerald-500 shrink-0"></div>
           <h2 data-testid="sidebar-title" className="text-lg font-bold text-gray-100 leading-tight">
             Sanjeev AI <br/><span className="text-emerald-400 font-normal text-sm">Documentation Portal</span>
           </h2>
         </div>
-        <select
-          ref={selectRef}
-          data-testid="project-selector"
-          className="bg-zinc-900 text-white border border-gray-700 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-emerald-500"
-          value={searchParams.get('project') || 'sanjeev-ai'}
-          onChange={handleProjectChange}
-        >
-          <option value="sanjeev-ai">Sanjeev AI</option>
-          <option value="other">Other Project</option>
-        </select>
+        <div className="flex gap-2">
+            <select
+            ref={selectRef}
+            data-testid="project-selector"
+            className="flex-1 bg-zinc-900 text-white border border-gray-700 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-emerald-500"
+            value={searchParams.get('project') || 'sanjeev-ai'}
+            onChange={handleProjectChange}
+            >
+            {accessibleProjects.includes('*') ? (
+              <>
+                <option value="sanjeev-ai">Sanjeev AI</option>
+                <option value="project-A">Project A</option>
+                <option value="project-B">Project B</option>
+                <option value="project-C">Project C</option>
+                <option value="project-D">Project D</option>
+              </>
+            ) : accessibleProjects.length > 0 ? (
+              accessibleProjects.map(p => (
+                <option key={p} value={p}>{p}</option>
+              ))
+            ) : (
+              <option value="">No projects</option>
+            )}
+            </select>
+            
+            <select
+            data-testid="env-selector"
+            className="w-24 bg-zinc-900 text-white border border-gray-700 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-emerald-500"
+            value={searchParams.get('env') || 'staging'}
+            onChange={handleEnvChange}
+            >
+            <option value="staging">Staging</option>
+            <option value="dev">Dev</option>
+            </select>
+        </div>
       </div>
 
       <nav className="flex flex-col gap-6 flex-grow">
@@ -191,6 +223,14 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
           <div className="px-3 mb-2 text-gray-400 truncate">
             {user.email}
           </div>
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className="block px-3 py-2 mb-2 rounded border border-emerald-700/50 hover:bg-emerald-400/10 hover:border-emerald-500/50 hover:text-emerald-400 transition-colors text-emerald-300 text-center uppercase tracking-wider font-semibold text-xs"
+            >
+              Admin Panel
+            </Link>
+          )}
           {isSupport ? (
             <div className="px-3 mb-3 text-xs font-semibold text-emerald-400 uppercase tracking-wider">
               Support Access Granted
@@ -202,6 +242,7 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
           )}
           <button
             onClick={logout}
+            data-testid="logout-btn"
             className="w-full text-left px-3 py-2 rounded hover:bg-red-400/10 hover:text-red-400 transition-colors text-gray-300"
           >
             Sign Out
