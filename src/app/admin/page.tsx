@@ -82,6 +82,7 @@ export default function AdminPage() {
       setEditingUserId(null);
       fetchUsers();
     } catch (e: any) {
+      console.error("[AdminPage] save error:", e);
       setError(e.message);
     }
   };

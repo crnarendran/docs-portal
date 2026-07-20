@@ -56,8 +56,9 @@ test.describe('RBAC and Admin Screen E2E', () => {
       password: 'password123',
     });
 
-    // Set custom claims for admin (both admin and support, so we don't rely on Cloud Function race conditions)
-    await auth.setCustomUserClaims(adminUser.uid, { admin: true, support: true });
+    // The Cloud Function only auto-grants admin to crnarendran@gmail.com.
+    // For E2E tests, we must manually set the claim for our test admin user.
+    await auth.setCustomUserClaims(adminUser.uid, { admin: true });
 
     // Seed Firestore with user roles/permissions
     await db.collection('portal_users').doc(standardUser1.uid).set({
@@ -95,7 +96,7 @@ test.describe('RBAC and Admin Screen E2E', () => {
     await page.goto('/login');
     
     // Wait for React hydration to attach onChange listeners
-    await page.waitForTimeout(500);
+    await expect(page.getByTestId('login-email')).toBeEditable({ timeout: 5000 });
 
     // Using Option B: Expect test-only email/password fields to be rendered when NEXT_PUBLIC_USE_EMULATORS='true'
     await page.getByTestId('login-email').fill(email);
@@ -146,12 +147,19 @@ test.describe('RBAC and Admin Screen E2E', () => {
     
     await page.getByTestId('save-user-btn').click({ force: true });
     
-    // Wait for changes to persist
-    await page.waitForTimeout(1000);
+    // Wait for the save to complete: the save-user-btn disappears
+    // when editingUserId is set to null after successful updateDoc.
+    await expect(page.getByTestId('save-user-btn')).toBeHidden({ timeout: 10000 });
 
-    // Logout and login as standard 1
+    // Verify the user row now shows project-D before logging out
+    const updatedRow = page.locator('[data-testid="user-row"]', { hasText: 'standard1@example.com' });
+    await expect(updatedRow).toContainText('project-D', { timeout: 5000 });
+
+    // Logout — the /admin page shows "access denied" when unauthenticated,
+    // so navigate explicitly to /login after logout completes.
     await page.getByTestId('logout-btn').click({ force: true });
-    await page.waitForTimeout(1000);
+    await page.goto('/login');
+    await expect(page.getByTestId('login-email')).toBeVisible({ timeout: 5000 });
     
     await login(page, 'standard1@example.com', 'password123');
     await page.goto('/');
