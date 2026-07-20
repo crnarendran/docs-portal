@@ -70,14 +70,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
 
-      try {
-        // Poll for the custom claim that is set asynchronously by the Cloud Function
-        const hasSupport = await checkSupportClaim(user);
-        setIsSupport(hasSupport);
-      } catch (e: any) {
-        console.error("[AUTH] Error checking support claim", e.message || e);
-        setIsSupport(false);
-      }
+      // Poll for the custom claim in the background — this is independent
+      // of the portal_users doc below and must NOT block it. The retry
+      // loop can take several seconds (worst case ~10s), and on projects
+      // where nothing ever grants the `support` claim it always runs to
+      // completion, which previously stalled the project dropdown (driven
+      // by the doc listener below) behind it on every page load.
+      checkSupportClaim(user)
+        .then(setIsSupport)
+        .catch((e: any) => {
+          console.error("[AUTH] Error checking support claim", e.message || e);
+          setIsSupport(false);
+        });
 
       // A live listener (rather than a one-shot getDoc) so that if this is
       // the user's first-ever sign-in, the UI self-corrects once the
