@@ -30,8 +30,11 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files — .env.staging and .env.production are intentionally committed
+# (non-secret Firebase web config, same pattern as frontend/.env.staging)
+.env
+.env.local
+.env.*.local
 
 # vercel
 .vercel
