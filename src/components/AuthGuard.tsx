@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -11,28 +11,35 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children, isInternal, requiresLogin }: AuthGuardProps) {
-  const { user, isSupport, loading } = useAuth();
+  const { user, isAdmin, accessibleProjects, loading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const currentProject = searchParams.get('project') || 'sanjeev-ai';
+  const hasProjectAccess =
+    isAdmin ||
+    accessibleProjects.includes('*') ||
+    accessibleProjects.includes(currentProject);
 
   useEffect(() => {
     if (!loading) {
       if (isInternal) {
         if (!user) {
           router.push('/login');
-        } else if (!isSupport) {
+        } else if (!hasProjectAccess) {
           router.push('/unauthorized');
         }
       } else if (requiresLogin && !user) {
         router.push('/login');
       }
     }
-  }, [user, isSupport, loading, isInternal, requiresLogin, router]);
+  }, [user, hasProjectAccess, loading, isInternal, requiresLogin, router]);
 
   if (loading && (isInternal || requiresLogin)) {
     return <div>Loading authentication...</div>;
   }
 
-  if (isInternal && (!user || !isSupport)) {
+  if (isInternal && (!user || !hasProjectAccess)) {
     return null;
   }
 

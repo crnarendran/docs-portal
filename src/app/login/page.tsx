@@ -7,22 +7,19 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
 export default function LoginPage() {
-  const { login, user, isSupport, loading } = useAuth();
+  const { login, user, loading } = useAuth();
   const router = useRouter();
-  
+
   const [testEmail, setTestEmail] = useState('');
   const [testPassword, setTestPassword] = useState('');
 
   useEffect(() => {
-    if (!loading) {
-      if (user && isSupport) {
-        router.push('/');
-      } else if (user && !isSupport) {
-        // Logged in but not support
-        // Maybe redirect somewhere else or just stay and show error
-      }
+    if (!loading && user) {
+      // Access to any given page is enforced per-page by AuthGuard
+      // (login + project-level access), not gated here.
+      router.push('/');
     }
-  }, [user, isSupport, loading, router]);
+  }, [user, loading, router]);
 
   const handleTestLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,16 +47,12 @@ export default function LoginPage() {
           </p>
         </div>
         
-        {loading ? (
+        {loading && (
           <div className="bg-blue-50 text-blue-600 p-3 rounded-md text-sm text-center flex items-center justify-center gap-2">
             <span className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
             Checking access permissions...
           </div>
-        ) : user && !isSupport ? (
-          <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm text-center">
-            You do not have the required access level (support) to view internal documentation.
-          </div>
-        ) : null}
+        )}
 
         <button 
           onClick={login}

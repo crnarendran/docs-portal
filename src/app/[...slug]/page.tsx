@@ -35,14 +35,14 @@ export default async function DocPage({
   }
 
   return (
-    <AuthGuard isInternal={doc.meta.isInternal === true} requiresLogin={doc.meta.requiresLogin === true}>
-      <Suspense fallback={<DocViewerFallback />}>
+    <Suspense fallback={<DocViewerFallback />}>
+      <AuthGuard isInternal={doc.meta.isInternal === true} requiresLogin={doc.meta.requiresLogin === true}>
         {doc.meta.requiresLogin === true ? (
           <ProtectedDocViewer slug={doc.slug} date={doc.meta.date} />
         ) : (
           <HybridDocViewer slug={doc.slug} initialContent={doc.content} date={doc.meta.date} />
         )}
-      </Suspense>
-    </AuthGuard>
+      </AuthGuard>
+    </Suspense>
   );
 }

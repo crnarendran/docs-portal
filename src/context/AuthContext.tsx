@@ -8,7 +8,6 @@ import { auth, db } from '@/lib/firebase';
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  isSupport: boolean;
   isAdmin: boolean;
   accessibleProjects: string[];
   login: () => Promise<void>;
@@ -18,34 +17,15 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
-  isSupport: false,
   isAdmin: false,
   accessibleProjects: [],
   login: async () => {},
   logout: async () => {},
 });
 
-const checkSupportClaim = async (
-  user: User,
-  retries = process.env.NEXT_PUBLIC_USE_EMULATORS === 'true' ? 1 : 5,
-  delay = process.env.NEXT_PUBLIC_USE_EMULATORS === 'true' ? 100 : 1000
-): Promise<boolean> => {
-  let currentDelay = delay;
-  for (let i = 0; i < retries; i++) {
-    const tokenResult = await user.getIdTokenResult(true);
-    if (tokenResult.claims.support) {
-      return true;
-    }
-    await new Promise((r) => setTimeout(r, currentDelay));
-    currentDelay *= 1.5; // backoff
-  }
-  return false;
-};
-
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isSupport, setIsSupport] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [accessibleProjects, setAccessibleProjects] = useState<string[]>([]);
 
@@ -63,25 +43,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (!user) {
         console.log(`[AUTH] User is null`);
-        setIsSupport(false);
         setIsAdmin(false);
         setAccessibleProjects([]);
         setLoading(false);
         return;
       }
-
-      // Poll for the custom claim in the background — this is independent
-      // of the portal_users doc below and must NOT block it. The retry
-      // loop can take several seconds (worst case ~10s), and on projects
-      // where nothing ever grants the `support` claim it always runs to
-      // completion, which previously stalled the project dropdown (driven
-      // by the doc listener below) behind it on every page load.
-      checkSupportClaim(user)
-        .then(setIsSupport)
-        .catch((e: any) => {
-          console.error("[AUTH] Error checking support claim", e.message || e);
-          setIsSupport(false);
-        });
 
       // A live listener (rather than a one-shot getDoc) so that if this is
       // the user's first-ever sign-in, the UI self-corrects once the
@@ -129,7 +95,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, isSupport, isAdmin, accessibleProjects, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, isAdmin, accessibleProjects, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

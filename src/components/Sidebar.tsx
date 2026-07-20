@@ -24,7 +24,7 @@ const PREFERRED_GROUP_ORDER = [
 ];
 
 export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
-  const { user, isSupport, isAdmin, accessibleProjects, logout } = useAuth();
+  const { user, isAdmin, accessibleProjects, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -35,6 +35,10 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
   // sidebar nav link so navigating the doc tree doesn't reset it.
   const currentProject = searchParams.get('project') || 'sanjeev-ai';
   const currentEnv = searchParams.get('env') || 'staging';
+  const hasProjectAccess =
+    isAdmin ||
+    accessibleProjects.includes('*') ||
+    accessibleProjects.includes(currentProject);
 
   const handleProjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newProject = e.target.value;
@@ -69,7 +73,7 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
 
     // Determine visibility based on user status
     if (link.requiresLogin && !user) return;
-    if (link.isInternal && !isSupport) return;
+    if (link.isInternal && !hasProjectAccess) return;
 
     let section = String(link.section || 'Other');
     let group = String(link.category || 'Misc');
@@ -234,9 +238,13 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
               Admin Panel
             </Link>
           )}
-          {isSupport ? (
+          {isAdmin ? (
             <div className="px-3 mb-3 text-xs font-semibold text-emerald-400 uppercase tracking-wider">
-              Support Access Granted
+              Admin Access
+            </div>
+          ) : hasProjectAccess ? (
+            <div className="px-3 mb-3 text-xs font-semibold text-emerald-400 uppercase tracking-wider">
+              Project Access Granted
             </div>
           ) : (
             <div className="px-3 mb-3 text-xs font-semibold text-amber-400 uppercase tracking-wider">
