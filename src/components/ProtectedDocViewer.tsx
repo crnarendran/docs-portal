@@ -13,10 +13,9 @@ import { mdxComponents } from './MDXComponents';
 // but standard HTML element overrides usually match.
 const components: any = mdxComponents;
 
-export function ProtectedDocViewer({ slug, date }: { slug: string, date?: string }) {
+export function ProtectedDocViewer({ project, slug, date }: { project: string, slug: string, date?: string }) {
     const searchParams = useSearchParams();
     const env = searchParams.get('env') || 'staging';
-    const project = searchParams.get('project') || 'sanjeev-ai';
     const { user, loading: authLoading, isAdmin, accessibleProjects } = useAuth();
     
     const [content, setContent] = useState<string | null>(null);

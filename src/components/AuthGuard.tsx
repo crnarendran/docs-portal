@@ -2,24 +2,24 @@
 
 import React, { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
 interface AuthGuardProps {
   children: React.ReactNode;
+  project: string;
   isInternal?: boolean;
   requiresLogin?: boolean;
 }
 
-export function AuthGuard({ children, isInternal, requiresLogin }: AuthGuardProps) {
+export function AuthGuard({ children, project, isInternal, requiresLogin }: AuthGuardProps) {
   const { user, isAdmin, accessibleProjects, loading } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
 
-  const currentProject = searchParams.get('project') || 'sanjeev-ai';
   const hasProjectAccess =
     isAdmin ||
     accessibleProjects.includes('*') ||
-    accessibleProjects.includes(currentProject);
+    accessibleProjects.includes(project) ||
+    project === 'sanjeev-ai';
 
   useEffect(() => {
     if (!loading) {

@@ -207,7 +207,7 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
                             {groupLinks.map(link => (
                               <Link
                                 key={link.slug}
-                                href={`/${link.slug}?project=${currentProject}&env=${currentEnv}`}
+                                href={`/${link.project || 'sanjeev-ai'}/${link.slug}?env=${currentEnv}`}
                                 className="px-2 py-1.5 text-sm rounded hover:bg-emerald-400/10 hover:text-emerald-400 transition-colors text-gray-400 truncate"
                               >
                                 {link.title}

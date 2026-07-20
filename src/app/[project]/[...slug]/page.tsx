@@ -1,9 +1,7 @@
 import { Suspense } from 'react';
-import { getDocBySlug, getAllDocs } from '@/lib/mdx';
-import { MDXRemote } from 'next-mdx-remote/rsc';
+import { getDocParams, getDocByProjectAndSlug } from '@/lib/mdx';
 import { notFound } from 'next/navigation';
 import { AuthGuard } from '@/components/AuthGuard';
-import { mdxComponents } from '@/components/MDXComponents';
 import { ProtectedDocViewer } from '@/components/ProtectedDocViewer';
 import { HybridDocViewer } from '@/components/HybridDocViewer';
 
@@ -16,19 +14,17 @@ function DocViewerFallback() {
 }
 
 export async function generateStaticParams() {
-  const docs = await getAllDocs();
-  return docs.map((doc) => ({
-    slug: doc.slug.split('/'),
-  }));
+  const params = await getDocParams();
+  return params.map(({ project, slug }) => ({ project, slug }));
 }
 
 export default async function DocPage({
   params,
 }: {
-  params: Promise<{ slug: string[] }>;
+  params: Promise<{ project: string; slug: string[] }>;
 }) {
   const resolvedParams = await params;
-  const doc = await getDocBySlug(resolvedParams.slug);
+  const doc = await getDocByProjectAndSlug(resolvedParams.project, resolvedParams.slug);
 
   if (!doc) {
     notFound();
@@ -36,11 +32,15 @@ export default async function DocPage({
 
   return (
     <Suspense fallback={<DocViewerFallback />}>
-      <AuthGuard isInternal={doc.meta.isInternal === true} requiresLogin={doc.meta.requiresLogin === true}>
+      <AuthGuard
+        project={doc.project}
+        isInternal={doc.meta.isInternal === true}
+        requiresLogin={doc.meta.requiresLogin === true}
+      >
         {doc.meta.requiresLogin === true ? (
-          <ProtectedDocViewer slug={doc.slug} date={doc.meta.date} />
+          <ProtectedDocViewer project={doc.project} slug={doc.slug} date={doc.meta.date} />
         ) : (
-          <HybridDocViewer slug={doc.slug} initialContent={doc.content} initialProject={doc.project} date={doc.meta.date} />
+          <HybridDocViewer project={doc.project} slug={doc.slug} initialContent={doc.content} date={doc.meta.date} />
         )}
       </AuthGuard>
     </Suspense>

@@ -13,9 +13,9 @@ export default async function Home() {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
         {docs.map((doc) => (
-          <Link 
-            key={doc.slug} 
-            href={`/${doc.slug}`}
+          <Link
+            key={`${doc.project}/${doc.slug}`}
+            href={`/${doc.project || 'sanjeev-ai'}/${doc.slug}`}
             className="block p-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl hover:border-blue-500 dark:hover:border-blue-500 transition-colors shadow-sm"
           >
             <h2 className="text-xl font-semibold mb-2">{doc.meta.title || doc.slug}</h2>

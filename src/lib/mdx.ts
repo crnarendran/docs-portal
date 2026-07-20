@@ -31,9 +31,9 @@ export interface Doc {
 export const getAllDocs = async (): Promise<Doc[]> => {
   // We use portal_docs as the source of truth for paths
   const snapshot = await db.collection('portal_docs').get();
-  
+
   const docs: Doc[] = [];
-  
+
   snapshot.forEach(docSnap => {
     const data = docSnap.data();
     docs.push({
@@ -46,8 +46,8 @@ export const getAllDocs = async (): Promise<Doc[]> => {
         requiresLogin: data.meta?.requiresLogin === true,
         project: data.project || 'sanjeev-ai',
         ...data.meta,
-        date: typeof data.meta?.date?.toDate === 'function' 
-          ? data.meta.date.toDate().toISOString() 
+        date: typeof data.meta?.date?.toDate === 'function'
+          ? data.meta.date.toDate().toISOString()
           : data.meta?.date
       },
       content: data.content || ''
@@ -57,17 +57,24 @@ export const getAllDocs = async (): Promise<Doc[]> => {
   return docs;
 };
 
-export const getDocSlugs = async (): Promise<string[][]> => {
+// Route params for the [project]/[...slug] page. Keyed on (project, slug)
+// together, not slug alone — two different projects can legitimately have
+// the same slug (e.g. both an "index"), and a slug-only key would collapse
+// them into a single ambiguous route.
+export const getDocParams = async (): Promise<{ project: string; slug: string[] }[]> => {
   const docs = await getAllDocs();
-  const uniqueSlugs = new Set<string>();
-  docs.forEach(d => uniqueSlugs.add(d.slug));
-  
-  return Array.from(uniqueSlugs).map(slug => slug.split('/'));
+  return docs.map(d => ({
+    project: d.project,
+    slug: d.slug.split('/'),
+  }));
 };
 
-export const getDocBySlug = async (slugArray: string[]): Promise<Doc | null> => {
+export const getDocByProjectAndSlug = async (
+  project: string,
+  slugArray: string[]
+): Promise<Doc | null> => {
   const docs = await getAllDocs();
   const realSlug = slugArray.join('/');
-  const doc = docs.find(d => d.slug === realSlug);
+  const doc = docs.find(d => d.project === project && d.slug === realSlug);
   return doc || null;
 };

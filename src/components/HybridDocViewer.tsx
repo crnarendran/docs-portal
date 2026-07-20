@@ -10,29 +10,30 @@ import { useAuth } from '@/context/AuthContext';
 
 const components: any = mdxComponents;
 
-export function HybridDocViewer({ 
-    slug, 
-    initialContent, 
-    initialProject,
-    date 
-}: { 
-    slug: string, 
-    initialContent: string, 
-    initialProject?: string,
-    date?: string 
+export function HybridDocViewer({
+    project,
+    slug,
+    initialContent,
+    date
+}: {
+    project: string,
+    slug: string,
+    initialContent: string,
+    date?: string
 }) {
     const searchParams = useSearchParams();
     const env = searchParams.get('env') || 'staging';
     const { user, loading: authLoading, isAdmin, accessibleProjects } = useAuth();
-    
+
     const [content, setContent] = useState<string>(initialContent);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        const project = searchParams.get('project') || 'sanjeev-ai';
-        // Static fast path: if not dev and project matches the pre-rendered initialProject, just use the pre-rendered content.
-        if (env !== 'dev' && project === (initialProject || 'sanjeev-ai')) {
+        // Static fast path: the route (project + slug) always resolves to the
+        // doc that was used to pre-render initialContent, so staging content
+        // never needs a live re-fetch — only the dev-preview collection does.
+        if (env !== 'dev') {
             setContent(initialContent);
             return;
         }
@@ -40,8 +41,6 @@ export function HybridDocViewer({
         let isMounted = true;
         const fetchDevDoc = async () => {
             if (authLoading) return; // Wait until auth is resolved
-
-            const project = searchParams.get('project') || 'sanjeev-ai';
 
             // Check access
             if (project !== 'sanjeev-ai' && !isAdmin && !accessibleProjects.includes(project) && !accessibleProjects.includes('*')) {
@@ -54,7 +53,7 @@ export function HybridDocViewer({
 
             const docId = `${project}_${slug.replace(/\//g, '_')}`;
             const cacheKey = `doc_cache_${docId}`;
-            
+
             // 1. Stale-while-revalidate: Load from sessionStorage first
             const cached = sessionStorage.getItem(cacheKey);
             if (cached) {
@@ -89,7 +88,7 @@ export function HybridDocViewer({
         fetchDevDoc();
 
         return () => { isMounted = false; };
-    }, [slug, env, initialContent, authLoading, user, isAdmin, accessibleProjects]);
+    }, [project, slug, env, initialContent, authLoading, user, isAdmin, accessibleProjects]);
 
     if (loading) {
         return (
@@ -104,7 +103,7 @@ export function HybridDocViewer({
             <div className="bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 p-4 rounded-md mt-8">
                 <p className="font-medium">Dev Preview Unavailable</p>
                 <p className="text-sm mt-1">{error}</p>
-                <button 
+                <button
                   onClick={() => { setError(null); setContent(initialContent); }}
                   className="mt-3 px-3 py-1.5 bg-amber-100 dark:bg-amber-800 text-amber-700 dark:text-amber-200 rounded text-sm font-medium hover:bg-amber-200 dark:hover:bg-amber-700 transition-colors cursor-pointer"
                 >
@@ -118,13 +117,13 @@ export function HybridDocViewer({
         <article className="prose dark:prose-invert max-w-none prose-emerald">
             {date && (
                 <p className="text-sm text-gray-500 mb-8 flex items-center gap-2">
-                  {date} 
+                  {date}
                   {env === 'dev' && <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-semibold">DEV PREVIEW</span>}
                 </p>
             )}
             <div className="mt-8">
-                <ReactMarkdown 
-                    remarkPlugins={[remarkGfm]} 
+                <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
                     components={components}
                 >
                     {content}
