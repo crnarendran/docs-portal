@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { getDocBySlug, getAllDocs } from '@/lib/mdx';
 import { MDXRemote } from 'next-mdx-remote/rsc';
 import { notFound } from 'next/navigation';
@@ -5,6 +6,14 @@ import { AuthGuard } from '@/components/AuthGuard';
 import { mdxComponents } from '@/components/MDXComponents';
 import { ProtectedDocViewer } from '@/components/ProtectedDocViewer';
 import { HybridDocViewer } from '@/components/HybridDocViewer';
+
+function DocViewerFallback() {
+  return (
+    <div className="flex items-center justify-center p-12">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+    </div>
+  );
+}
 
 export async function generateStaticParams() {
   const docs = getAllDocs();
@@ -27,11 +36,13 @@ export default async function DocPage({
 
   return (
     <AuthGuard isInternal={doc.meta.isInternal === true} requiresLogin={doc.meta.requiresLogin === true}>
-      {doc.meta.requiresLogin === true ? (
-        <ProtectedDocViewer slug={doc.slug} date={doc.meta.date} />
-      ) : (
-        <HybridDocViewer slug={doc.slug} initialContent={doc.content} date={doc.meta.date} />
-      )}
+      <Suspense fallback={<DocViewerFallback />}>
+        {doc.meta.requiresLogin === true ? (
+          <ProtectedDocViewer slug={doc.slug} date={doc.meta.date} />
+        ) : (
+          <HybridDocViewer slug={doc.slug} initialContent={doc.content} date={doc.meta.date} />
+        )}
+      </Suspense>
     </AuthGuard>
   );
 }
