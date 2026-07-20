@@ -45,7 +45,10 @@ export const getAllDocs = async (): Promise<Doc[]> => {
         category: data.meta?.category || 'Misc',
         requiresLogin: data.meta?.requiresLogin === true,
         project: data.project || 'sanjeev-ai',
-        ...data.meta
+        ...data.meta,
+        date: typeof data.meta?.date?.toDate === 'function' 
+          ? data.meta.date.toDate().toISOString() 
+          : data.meta?.date
       },
       content: data.content || ''
     });
