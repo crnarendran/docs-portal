@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 
 interface AuthContextType {
@@ -50,19 +50,44 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [accessibleProjects, setAccessibleProjects] = useState<string[]>([]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    let unsubscribeDoc: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      if (unsubscribeDoc) {
+        unsubscribeDoc();
+        unsubscribeDoc = null;
+      }
+
       setLoading(true);
       setUser(user);
-      if (user) {
-        try {
-          // Poll for the custom claim that is set asynchronously by the Cloud Function
-          const hasSupport = await checkSupportClaim(user);
-          setIsSupport(hasSupport);
 
-          console.log(`[AUTH] checking doc for user: ${user.uid}`);
-          const docRef = doc(db, 'portal_users', user.uid);
-          const docSnap = await getDoc(docRef);
+      if (!user) {
+        console.log(`[AUTH] User is null`);
+        setIsSupport(false);
+        setIsAdmin(false);
+        setAccessibleProjects([]);
+        setLoading(false);
+        return;
+      }
 
+      try {
+        // Poll for the custom claim that is set asynchronously by the Cloud Function
+        const hasSupport = await checkSupportClaim(user);
+        setIsSupport(hasSupport);
+      } catch (e: any) {
+        console.error("[AUTH] Error checking support claim", e.message || e);
+        setIsSupport(false);
+      }
+
+      // A live listener (rather than a one-shot getDoc) so that if this is
+      // the user's first-ever sign-in, the UI self-corrects once the
+      // async createPortalUserDocument trigger writes the document,
+      // instead of permanently reading "not admin" until a page refresh.
+      console.log(`[AUTH] subscribing to portal_users doc for: ${user.uid}`);
+      const docRef = doc(db, 'portal_users', user.uid);
+      unsubscribeDoc = onSnapshot(
+        docRef,
+        (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data();
             console.log(`[AUTH] docSnap exists. data:`, data);
@@ -73,22 +98,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setIsAdmin(false);
             setAccessibleProjects([]);
           }
-        } catch (e: any) {
+          setLoading(false);
+        },
+        (e) => {
           console.error("[AUTH] Error getting user metadata", e.message || e);
-          setIsSupport(false);
           setIsAdmin(false);
           setAccessibleProjects([]);
+          setLoading(false);
         }
-      } else {
-        console.log(`[AUTH] User is null`);
-        setIsSupport(false);
-        setIsAdmin(false);
-        setAccessibleProjects([]);
-      }
-      setLoading(false);
+      );
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeDoc) unsubscribeDoc();
+    };
   }, []);
 
   const login = async () => {

@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, connectAuthEmulator } from "firebase/auth";
 import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
+import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "demo-api-key",
@@ -14,6 +15,7 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
+const functions = getFunctions(app, "europe-west6");
 
 // Use local emulators in development or when explicitly requested via env
 if (process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_USE_EMULATORS === 'true') {
@@ -30,6 +32,12 @@ if (process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_USE_EMULAT
   } catch (e) {
     // Already connected
   }
+
+  try {
+    connectFunctionsEmulator(functions, host, 5001);
+  } catch (e) {
+    // Already connected
+  }
 }
 
-export { app, auth, db };
+export { app, auth, db, functions };

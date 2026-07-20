@@ -170,4 +170,30 @@ test.describe('RBAC and Admin Screen E2E', () => {
     // Assertion: project-D should now be visible
     await expect(projectSelector).toContainText('project-D');
   });
+
+  test('Admin Promotion - Toggling grants a standard user admin access', async ({ page }) => {
+    // Authenticate as the existing admin
+    await login(page, 'admin@example.com', 'password123');
+
+    await page.goto('/admin');
+    await expect(page.getByTestId('admin-dashboard')).toBeVisible();
+
+    const userRow = page.locator('[data-testid="user-row"]', { hasText: 'standard2@example.com' });
+    const toggleBtn = userRow.getByTestId('toggle-admin-btn');
+    await expect(toggleBtn).toContainText('No');
+
+    await toggleBtn.click({ force: true });
+
+    // Wait for the callable + refetch to resolve and flip the button's own label
+    await expect(toggleBtn).toContainText('Yes', { timeout: 10000 });
+
+    await page.getByTestId('logout-btn').click({ force: true });
+    await page.goto('/login');
+    await expect(page.getByTestId('login-email')).toBeVisible({ timeout: 5000 });
+
+    // The newly-promoted user should now be able to load the admin dashboard
+    await login(page, 'standard2@example.com', 'password123');
+    await page.goto('/admin');
+    await expect(page.getByTestId('admin-dashboard')).toBeVisible({ timeout: 10000 });
+  });
 });
