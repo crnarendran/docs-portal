@@ -48,8 +48,8 @@ export function ProtectedDocViewer({ slug, date }: { slug: string, date?: string
 
                 // Removed local db import
 
-                // Convert slash to underscore as we did in the upload script
-                const docId = slug.replace(/\//g, '_');
+                // Convert slash to underscore and prefix with project
+                const docId = `${project}_${slug.replace(/\//g, '_')}`;
                 const collectionName = env === 'dev' ? 'portal_docs_dev' : 'portal_docs';
                 const docRef = doc(db, collectionName, docId);
                 const docSnap = await getDoc(docRef);

@@ -6,35 +6,53 @@ import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { mdxComponents } from './MDXComponents';
+import { useAuth } from '@/context/AuthContext';
 
 const components: any = mdxComponents;
 
 export function HybridDocViewer({ 
     slug, 
     initialContent, 
+    initialProject,
     date 
 }: { 
     slug: string, 
     initialContent: string, 
+    initialProject?: string,
     date?: string 
 }) {
     const searchParams = useSearchParams();
     const env = searchParams.get('env') || 'staging';
+    const { user, loading: authLoading, isAdmin, accessibleProjects } = useAuth();
     
     const [content, setContent] = useState<string>(initialContent);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        // Static fast path: if not dev, just use the pre-rendered content.
-        if (env !== 'dev') {
+        const project = searchParams.get('project') || 'sanjeev-ai';
+        // Static fast path: if not dev and project matches the pre-rendered initialProject, just use the pre-rendered content.
+        if (env !== 'dev' && project === (initialProject || 'sanjeev-ai')) {
             setContent(initialContent);
             return;
         }
 
         let isMounted = true;
         const fetchDevDoc = async () => {
-            const docId = slug.replace(/\//g, '_');
+            if (authLoading) return; // Wait until auth is resolved
+
+            const project = searchParams.get('project') || 'sanjeev-ai';
+
+            // Check access
+            if (project !== 'sanjeev-ai' && !isAdmin && !accessibleProjects.includes(project) && !accessibleProjects.includes('*')) {
+                if (isMounted) {
+                    setError("Unauthorized to view this project.");
+                    setLoading(false);
+                }
+                return;
+            }
+
+            const docId = `${project}_${slug.replace(/\//g, '_')}`;
             const cacheKey = `doc_cache_${docId}`;
             
             // 1. Stale-while-revalidate: Load from sessionStorage first
@@ -48,7 +66,8 @@ export function HybridDocViewer({
 
             try {
                 const db = getFirestore();
-                const docRef = doc(db, 'portal_docs_dev', docId);
+                const collectionName = env === 'dev' ? 'portal_docs_dev' : 'portal_docs';
+                const docRef = doc(db, collectionName, docId);
                 const docSnap = await getDoc(docRef);
 
                 if (docSnap.exists() && isMounted) {
@@ -56,11 +75,11 @@ export function HybridDocViewer({
                     setContent(newContent);
                     sessionStorage.setItem(cacheKey, newContent);
                 } else if (!cached && isMounted) {
-                    setError("Draft document not found in dev environment.");
+                    setError(`Document not found in ${env} environment.`);
                 }
             } catch (err: any) {
                 if (!cached && isMounted) {
-                    setError("Failed to load dev document: " + err.message);
+                    setError(`Failed to load document: ` + err.message);
                 }
             } finally {
                 if (isMounted) setLoading(false);
@@ -70,7 +89,7 @@ export function HybridDocViewer({
         fetchDevDoc();
 
         return () => { isMounted = false; };
-    }, [slug, env, initialContent]);
+    }, [slug, env, initialContent, authLoading, user, isAdmin, accessibleProjects]);
 
     if (loading) {
         return (

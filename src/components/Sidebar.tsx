@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 
 export interface SidebarLink {
   slug: string;
+  project?: string;
   title: string;
   isInternal: boolean;
   section?: string;
@@ -68,8 +69,15 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
   // Build the 3-level tree
   const tree: Record<string, Record<string, SidebarLink[]>> = Object.create(null);
 
+  const isAuthorizedForProject = isAdmin || accessibleProjects.includes(currentProject) || accessibleProjects.includes('*') || currentProject === 'sanjeev-ai';
+
   links.forEach(link => {
+    if (!isAuthorizedForProject) return;
     if (link.slug === 'index' || link.slug === '') return;
+
+    // Filter by project (defaulting older unmigrated links to sanjeev-ai)
+    const linkProject = link.project || 'sanjeev-ai';
+    if (linkProject !== currentProject) return;
 
     // Determine visibility based on user status
     if (link.requiresLogin && !user) return;
@@ -115,6 +123,7 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
             {accessibleProjects.includes('*') ? (
               <>
                 <option value="sanjeev-ai">Sanjeev AI</option>
+                <option value="swarmkit">SwarmKit</option>
                 <option value="project-A">Project A</option>
                 <option value="project-B">Project B</option>
                 <option value="project-C">Project C</option>

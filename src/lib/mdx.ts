@@ -1,9 +1,14 @@
-import fs from 'fs';
-import path from 'path';
-import matter from 'gray-matter';
+import { getFirestore } from 'firebase-admin/firestore';
+import { initializeApp, getApps } from 'firebase-admin/app';
 
-// Point to the workspace root's docs folder
-const docsDirectory = path.join(process.cwd(), '../docs');
+// Ensure Firebase Admin is initialized
+if (getApps().length === 0) {
+  initializeApp({
+    projectId: process.env.FIREBASE_PROJECT_ID || 'docs-portal-staging'
+  });
+}
+
+const db = getFirestore();
 
 export interface DocMeta {
   title: string;
@@ -11,95 +16,55 @@ export interface DocMeta {
   section?: string;
   category?: string;
   requiresLogin?: boolean;
+  project?: string;
   [key: string]: any;
 }
 
 export interface Doc {
   slug: string;
+  project: string;
   meta: DocMeta;
   content: string;
 }
 
-// Ensure the docs directory exists (or return empty arrays if it doesn't)
-const getDocsDir = () => {
-  if (!fs.existsSync(docsDirectory)) {
-    return null;
-  }
-  return docsDirectory;
-};
-
-// Get all MD/MDX files recursively or flat (assuming flat for now, but we can extend this)
-export const getDocSlugs = (): string[][] => {
-  const dir = getDocsDir();
-  if (!dir) return [];
-
-  const walkSync = (dir: string, filelist: string[] = [], baseDir: string = dir) => {
-    const files = fs.readdirSync(dir);
-    files.forEach(file => {
-      const filepath = path.join(dir, file);
-      if (fs.statSync(filepath).isDirectory()) {
-        filelist = walkSync(filepath, filelist, baseDir);
-      } else if (file.endsWith('.md') || file.endsWith('.mdx')) {
-        const relativePath = path.relative(baseDir, filepath);
-        // Remove extension
-        // Replace Windows backslashes with forward slashes to ensure consistent slugs
-        const slug = relativePath.replace(/\.mdx?$/, '').replace(/\\/g, '/');
-        filelist.push(slug);
-      }
-    });
-    return filelist;
-  };
-
-  const allFiles = walkSync(dir);
-  return allFiles.map(slug => slug.split('/')); // return array of path segments
-};
-
-export const getDocBySlug = (slugArray: string[]): Doc | null => {
-  const dir = getDocsDir();
-  if (!dir) return null;
-
-  const realSlug = slugArray.join('/');
-  const fullPathMd = path.join(dir, `${realSlug}.md`);
-  const fullPathMdx = path.join(dir, `${realSlug}.mdx`);
-
-  let fileContents = '';
-  if (fs.existsSync(fullPathMdx)) {
-    fileContents = fs.readFileSync(fullPathMdx, 'utf8');
-  } else if (fs.existsSync(fullPathMd)) {
-    fileContents = fs.readFileSync(fullPathMd, 'utf8');
-  } else {
-    // Also support if it is an index.md inside a folder
-    const indexPathMd = path.join(dir, realSlug, 'index.md');
-    const indexPathMdx = path.join(dir, realSlug, 'index.mdx');
-    if (fs.existsSync(indexPathMdx)) {
-      fileContents = fs.readFileSync(indexPathMdx, 'utf8');
-    } else if (fs.existsSync(indexPathMd)) {
-      fileContents = fs.readFileSync(indexPathMd, 'utf8');
-    } else {
-      return null;
-    }
-  }
-
-  const { data, content } = matter(fileContents);
-
-  return {
-    slug: realSlug,
-    meta: {
-      title: String(data.title || realSlug),
-      section: String(data.section || 'Other'),
-      category: String(data.category || 'Misc'),
-      requiresLogin: data.requiresLogin === true || data.requiresLogin === 'true',
-      ...data
-    } as DocMeta,
-    content,
-  };
-};
-
-export const getAllDocs = (): Doc[] => {
-  const slugs = getDocSlugs();
-  const docs = slugs
-    .map((slug) => getDocBySlug(slug))
-    .filter((doc): doc is Doc => doc !== null);
+// In Next.js App Router, this will run at build time (and during dev)
+export const getAllDocs = async (): Promise<Doc[]> => {
+  // We use portal_docs as the source of truth for paths
+  const snapshot = await db.collection('portal_docs').get();
   
+  const docs: Doc[] = [];
+  
+  snapshot.forEach(docSnap => {
+    const data = docSnap.data();
+    docs.push({
+      slug: data.slug,
+      project: data.project || 'sanjeev-ai', // default to sanjeev-ai for older docs
+      meta: {
+        title: data.meta?.title || data.slug,
+        section: data.meta?.section || 'Other',
+        category: data.meta?.category || 'Misc',
+        requiresLogin: data.meta?.requiresLogin === true,
+        project: data.project || 'sanjeev-ai',
+        ...data.meta
+      },
+      content: data.content || ''
+    });
+  });
+
   return docs;
+};
+
+export const getDocSlugs = async (): Promise<string[][]> => {
+  const docs = await getAllDocs();
+  const uniqueSlugs = new Set<string>();
+  docs.forEach(d => uniqueSlugs.add(d.slug));
+  
+  return Array.from(uniqueSlugs).map(slug => slug.split('/'));
+};
+
+export const getDocBySlug = async (slugArray: string[]): Promise<Doc | null> => {
+  const docs = await getAllDocs();
+  const realSlug = slugArray.join('/');
+  const doc = docs.find(d => d.slug === realSlug);
+  return doc || null;
 };

@@ -22,14 +22,15 @@ import { Suspense } from "react";
 import { AuthProvider } from "@/context/AuthContext";
 import { getAllDocs } from "@/lib/mdx";
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const docs = getAllDocs();
+  const docs = await getAllDocs();
   const sidebarLinks = docs.map(d => ({
     slug: d.slug,
+    project: d.project,
     title: d.meta.title || d.slug,
     isInternal: d.meta.isInternal === true || String(d.meta.isInternal) === 'true',
     section: d.meta.section,

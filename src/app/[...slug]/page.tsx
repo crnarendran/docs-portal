@@ -40,7 +40,7 @@ export default async function DocPage({
         {doc.meta.requiresLogin === true ? (
           <ProtectedDocViewer slug={doc.slug} date={doc.meta.date} />
         ) : (
-          <HybridDocViewer slug={doc.slug} initialContent={doc.content} date={doc.meta.date} />
+          <HybridDocViewer slug={doc.slug} initialContent={doc.content} initialProject={doc.project} date={doc.meta.date} />
         )}
       </AuthGuard>
     </Suspense>

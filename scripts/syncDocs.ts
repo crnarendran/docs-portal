@@ -47,7 +47,10 @@ const syncDocs = async () => {
 
   const collectionName = targetEnv === 'dev' ? 'portal_docs_dev' : 'portal_docs';
 
-  console.log(`Syncing docs for environment: ${targetEnv} to collection: ${collectionName}...`);
+  const projectArg = process.argv.find(arg => arg.startsWith('--project='));
+  const project = projectArg ? projectArg.split('=')[1] : 'sanjeev-ai';
+
+  console.log(`Syncing docs for project: ${project} in environment: ${targetEnv} to collection: ${collectionName}...`);
 
   const slugs = getDocSlugs();
   let count = 0;
@@ -67,12 +70,13 @@ const syncDocs = async () => {
 
     const { data, content } = matter(fileContents);
     
-    // Replace slash with underscore as used in ProtectedDocViewer
-    const docId = slug.replace(/\//g, '_');
+    // Replace slash with underscore and prefix with project
+    const docId = `${project}_${slug.replace(/\//g, '_')}`;
     const docRef = db.collection(collectionName).doc(docId);
 
     await docRef.set({
         slug: slug,
+        project: project,
         meta: {
             title: String(data.title || slug),
             section: String(data.section || 'Other'),
