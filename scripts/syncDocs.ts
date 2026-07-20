@@ -4,9 +4,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import matter from 'gray-matter';
 
-// Initialize Firebase Admin (Uses Application Default Credentials)
+// Initialize Firebase Admin (Uses Application Default Credentials).
+// dev and staging both live in docs-portal-staging (distinguished by
+// collection name below); pass FIREBASE_PROJECT_ID=docs-portal-prod to
+// target production instead.
 initializeApp({
-  projectId: process.env.FIREBASE_PROJECT_ID || 'sanjeev-ai-staging'
+  projectId: process.env.FIREBASE_PROJECT_ID || 'docs-portal-staging'
 });
 const db = getFirestore();
 

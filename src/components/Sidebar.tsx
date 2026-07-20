@@ -31,15 +31,18 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
   
   const selectRef = useRef<HTMLSelectElement>(null);
 
+  // Current selection, reused both by the switchers below and by every
+  // sidebar nav link so navigating the doc tree doesn't reset it.
+  const currentProject = searchParams.get('project') || 'sanjeev-ai';
+  const currentEnv = searchParams.get('env') || 'staging';
+
   const handleProjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newProject = e.target.value;
-    const currentEnv = searchParams.get('env') || 'staging';
     router.push(`${pathname}?project=${newProject}&env=${currentEnv}`);
   };
 
   const handleEnvChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newEnv = e.target.value;
-    const currentProject = searchParams.get('project') || 'sanjeev-ai';
     router.push(`${pathname}?project=${currentProject}&env=${newEnv}`);
   };
   
@@ -102,7 +105,7 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
             ref={selectRef}
             data-testid="project-selector"
             className="flex-1 bg-zinc-900 text-white border border-gray-700 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-emerald-500"
-            value={searchParams.get('project') || 'sanjeev-ai'}
+            value={currentProject}
             onChange={handleProjectChange}
             >
             {accessibleProjects.includes('*') ? (
@@ -125,7 +128,7 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
             <select
             data-testid="env-selector"
             className="w-24 bg-zinc-900 text-white border border-gray-700 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-emerald-500"
-            value={searchParams.get('env') || 'staging'}
+            value={currentEnv}
             onChange={handleEnvChange}
             >
             <option value="staging">Staging</option>
@@ -191,7 +194,7 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
                             {groupLinks.map(link => (
                               <Link
                                 key={link.slug}
-                                href={`/${link.slug}`}
+                                href={`/${link.slug}?project=${currentProject}&env=${currentEnv}`}
                                 className="px-2 py-1.5 text-sm rounded hover:bg-emerald-400/10 hover:text-emerald-400 transition-colors text-gray-400 truncate"
                               >
                                 {link.title}
