@@ -56,21 +56,27 @@ test.describe('RBAC and Admin Screen E2E', () => {
       password: 'password123',
     });
 
-    // Set custom claims for admin
-    await auth.setCustomUserClaims(adminUser.uid, { admin: true });
+    // Set custom claims for admin (both admin and support, so we don't rely on Cloud Function race conditions)
+    await auth.setCustomUserClaims(adminUser.uid, { admin: true, support: true });
 
     // Seed Firestore with user roles/permissions
     await db.collection('portal_users').doc(standardUser1.uid).set({
+      uid: standardUser1.uid,
+      email: standardUser1.email,
       isAdmin: false,
       accessibleProjects: ['project-A'],
     });
 
     await db.collection('portal_users').doc(standardUser2.uid).set({
+      uid: standardUser2.uid,
+      email: standardUser2.email,
       isAdmin: false,
       accessibleProjects: ['project-A', 'project-C'],
     });
 
     await db.collection('portal_users').doc(adminUser.uid).set({
+      uid: adminUser.uid,
+      email: adminUser.email,
       isAdmin: true,
       accessibleProjects: ['*'],
     });
@@ -80,18 +86,24 @@ test.describe('RBAC and Admin Screen E2E', () => {
     await db.collection('projects').doc('project-B').set({ name: 'Project B' });
     await db.collection('projects').doc('project-C').set({ name: 'Project C' });
     await db.collection('projects').doc('project-D').set({ name: 'Project D' });
+
+    // Wait for any async Cloud Functions (like createPortalUserDocument) to finish and settle
+    await new Promise(r => setTimeout(r, 3000));
   });
 
   async function login(page, email, password) {
     await page.goto('/login');
     
+    // Wait for React hydration to attach onChange listeners
+    await page.waitForTimeout(500);
+
     // Using Option B: Expect test-only email/password fields to be rendered when NEXT_PUBLIC_USE_EMULATORS='true'
     await page.getByTestId('login-email').fill(email);
     await page.getByTestId('login-password').fill(password);
     await page.getByTestId('login-submit').click({ force: true });
     
-    // Allow time for Firebase Auth emulator to resolve and redirect
-    await page.waitForTimeout(1000);
+    // Wait for the auth context to update and render the sidebar's logged-in view
+    await expect(page.getByTestId('logout-btn')).toBeVisible({ timeout: 10000 });
   }
 
   test('Access Denied (Unauthorized) - Standard user cannot view unauthorized project', async ({ page }) => {

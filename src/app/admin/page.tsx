@@ -37,6 +37,7 @@ export default function AdminPage() {
       });
       setUsers(fetchedUsers);
     } catch (e: any) {
+      console.error("[AdminPage] fetchUsers error:", e);
       setError(e.message);
     } finally {
       setFetching(false);
@@ -45,17 +46,21 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!loading && isAdmin) {
+      console.log("[AdminPage] fetching users...");
       fetchUsers();
     } else if (!loading) {
+      console.log("[AdminPage] not fetching, isAdmin:", isAdmin);
       setFetching(false);
     }
   }, [loading, isAdmin]);
 
   if (loading || fetching) {
+    console.log("[AdminPage] rendering loading");
     return <div className="p-8 text-white">Loading...</div>;
   }
 
   if (!isAdmin) {
+    console.log("[AdminPage] rendering access denied");
     return (
       <div className="p-8 text-white">
         <h1 className="text-2xl font-bold mb-4 text-red-500">Access Denied</h1>
