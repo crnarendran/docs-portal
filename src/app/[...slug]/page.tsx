@@ -16,7 +16,7 @@ function DocViewerFallback() {
 }
 
 export async function generateStaticParams() {
-  const docs = getAllDocs();
+  const docs = await getAllDocs();
   return docs.map((doc) => ({
     slug: doc.slug.split('/'),
   }));
@@ -28,7 +28,7 @@ export default async function DocPage({
   params: Promise<{ slug: string[] }>;
 }) {
   const resolvedParams = await params;
-  const doc = getDocBySlug(resolvedParams.slug);
+  const doc = await getDocBySlug(resolvedParams.slug);
 
   if (!doc) {
     notFound();

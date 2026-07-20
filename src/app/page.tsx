@@ -1,8 +1,8 @@
 import { getAllDocs } from '@/lib/mdx';
 import Link from 'next/link';
 
-export default function Home() {
-  const docs = getAllDocs();
+export default async function Home() {
+  const docs = await getAllDocs();
   
   return (
     <div className="space-y-6">
