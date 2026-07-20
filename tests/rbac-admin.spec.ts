@@ -25,15 +25,6 @@ test.describe('RBAC and Admin Screen E2E', () => {
   });
 
   test.beforeAll(async () => {
-    // Clean up previous test users if they exist
-    try {
-      await auth.deleteUser('standard_user_1');
-      await auth.deleteUser('standard_user_2');
-      await auth.deleteUser('admin_user_1');
-    } catch (e) {
-      // Ignore if they don't exist
-    }
-
     const safelyCreateUser = async (userData) => {
       try {
         return await auth.createUser(userData);
@@ -121,10 +112,9 @@ test.describe('RBAC and Admin Screen E2E', () => {
     const projectSelector = page.getByTestId('project-selector');
     await expect(projectSelector).toBeVisible();
 
-    const optionsText = await projectSelector.innerText();
-    expect(optionsText).toContain('project-A');
-    expect(optionsText).toContain('project-C');
-    expect(optionsText).not.toContain('project-B');
+    await expect(projectSelector).toContainText('project-A');
+    await expect(projectSelector).toContainText('project-C');
+    await expect(projectSelector).not.toContainText('project-B');
   });
 
   test('Admin Access and Granting Permissions', async ({ page }) => {
@@ -158,7 +148,6 @@ test.describe('RBAC and Admin Screen E2E', () => {
     await expect(projectSelector).toBeVisible();
     
     // Assertion: project-D should now be visible
-    const optionsText = await projectSelector.innerText();
-    expect(optionsText).toContain('project-D');
+    await expect(projectSelector).toContainText('project-D');
   });
 });
