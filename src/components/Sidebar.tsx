@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react';
 import Link from 'next/link';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams, useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
 export interface SidebarLink {
@@ -29,12 +29,19 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  
+  const params = useParams();
+
   const selectRef = useRef<HTMLSelectElement>(null);
 
   // Current selection, reused both by the switchers below and by every
   // sidebar nav link so navigating the doc tree doesn't reset it.
-  const currentProject = searchParams.get('project') || 'sanjeev-ai';
+  // On a doc page the route itself is authoritative (/{project}/{slug}) —
+  // doc links no longer carry ?project= at all, so falling back to the
+  // query param first would show the wrong project in the dropdown the
+  // moment you land on a real page. Only pages with no [project] route
+  // segment (/, /admin, /login) fall back to the query param / default.
+  const pathProject = typeof params.project === 'string' ? params.project : undefined;
+  const currentProject = pathProject || searchParams.get('project') || 'sanjeev-ai';
   const currentEnv = searchParams.get('env') || 'staging';
   const hasProjectAccess =
     isAdmin ||
@@ -43,7 +50,10 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
 
   const handleProjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newProject = e.target.value;
-    router.push(`${pathname}?project=${newProject}&env=${currentEnv}`);
+    // Navigate home rather than staying on the current path: the current
+    // page belongs to the OLD project and there's no guarantee an
+    // equivalent slug exists under the new one.
+    router.push(`/?project=${newProject}&env=${currentEnv}`);
   };
 
   const handleEnvChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -124,10 +134,6 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
               <>
                 <option value="sanjeev-ai">Sanjeev AI</option>
                 <option value="swarmkit">SwarmKit</option>
-                <option value="project-A">Project A</option>
-                <option value="project-B">Project B</option>
-                <option value="project-C">Project C</option>
-                <option value="project-D">Project D</option>
               </>
             ) : accessibleProjects.length > 0 ? (
               accessibleProjects.map(p => (

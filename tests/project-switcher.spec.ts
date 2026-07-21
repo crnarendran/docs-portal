@@ -36,17 +36,15 @@ test.describe('Adversarial QA - Project Switcher', () => {
       password: 'password123',
     });
 
-    // Seed portal_users doc with multiple projects
+    // Grant both real projects so there's something to switch between —
+    // sanjeev-ai is always accessible by default; swarmkit is granted
+    // explicitly here.
     await db.collection('portal_users').doc(switcherUser.uid).set({
       uid: switcherUser.uid,
       email: switcherUser.email,
       isAdmin: false,
-      accessibleProjects: ['project-A', 'project-B'],
+      accessibleProjects: ['sanjeev-ai', 'swarmkit'],
     });
-
-    // Ensure project docs exist
-    await db.collection('projects').doc('project-A').set({ name: 'Project A' });
-    await db.collection('projects').doc('project-B').set({ name: 'Project B' });
 
     // Wait for Cloud Function settling
     await new Promise(r => setTimeout(r, 2000));
@@ -69,18 +67,18 @@ test.describe('Adversarial QA - Project Switcher', () => {
     await expect(projectSelector).toBeVisible();
 
     // Select a project that actually exists in the user's accessible list
-    await projectSelector.selectOption('project-B');
+    await projectSelector.selectOption('swarmkit');
 
     // Assertion: URL should reflect the new project
-    await expect(page).toHaveURL(/.*project=project-B/, { timeout: 5000 });
+    await expect(page).toHaveURL(/.*project=swarmkit/, { timeout: 5000 });
   });
 
   test('should initialize the project selector from query parameters', async ({ page }) => {
     await login(page, 'switcher@example.com', 'password123');
 
     // Navigate with a valid project in the query param
-    await page.goto('/?project=project-B');
+    await page.goto('/?project=swarmkit');
     const projectSelector = page.getByTestId('project-selector');
-    await expect(projectSelector).toHaveValue('project-B', { timeout: 5000 });
+    await expect(projectSelector).toHaveValue('swarmkit', { timeout: 5000 });
   });
 });

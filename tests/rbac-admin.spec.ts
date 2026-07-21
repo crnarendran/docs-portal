@@ -60,19 +60,22 @@ test.describe('RBAC and Admin Screen E2E', () => {
     // For E2E tests, we must manually set the claim for our test admin user.
     await auth.setCustomUserClaims(adminUser.uid, { admin: true });
 
-    // Seed Firestore with user roles/permissions
+    // Seed Firestore with user roles/permissions. sanjeev-ai is always
+    // accessible to any signed-in user (see AuthGuard/Sidebar's
+    // `|| project === 'sanjeev-ai'` bypass) so it can't be used to test
+    // denial — swarmkit is the only real project that's actually gated.
     await db.collection('portal_users').doc(standardUser1.uid).set({
       uid: standardUser1.uid,
       email: standardUser1.email,
       isAdmin: false,
-      accessibleProjects: ['project-A'],
+      accessibleProjects: [],
     });
 
     await db.collection('portal_users').doc(standardUser2.uid).set({
       uid: standardUser2.uid,
       email: standardUser2.email,
       isAdmin: false,
-      accessibleProjects: ['project-A', 'project-C'],
+      accessibleProjects: ['swarmkit'],
     });
 
     await db.collection('portal_users').doc(adminUser.uid).set({
@@ -82,11 +85,25 @@ test.describe('RBAC and Admin Screen E2E', () => {
       accessibleProjects: ['*'],
     });
 
-    // Also need project docs to exist potentially
-    await db.collection('projects').doc('project-A').set({ name: 'Project A' });
-    await db.collection('projects').doc('project-B').set({ name: 'Project B' });
-    await db.collection('projects').doc('project-C').set({ name: 'Project C' });
-    await db.collection('projects').doc('project-D').set({ name: 'Project D' });
+    // A doc that requiresLogin — access control only actually applies to
+    // requiresLogin/isInternal docs (a public doc renders unconditionally
+    // from the static export regardless of accessibleProjects), so
+    // testing "denied" needs a doc gated this way. Seeded directly rather
+    // than depending on real synced SwarmKit content, which may not be
+    // gated at all.
+    await db.collection('portal_docs').doc('swarmkit_test-gated-doc').set({
+      slug: 'test-gated-doc',
+      project: 'swarmkit',
+      meta: {
+        title: 'Gated Test Doc',
+        section: 'Test',
+        category: 'Test',
+        requiresLogin: true,
+        isInternal: false,
+      },
+      content: 'Gated content for RBAC E2E testing.',
+      env: 'staging',
+    });
 
     // Wait for any async Cloud Functions (like createPortalUserDocument) to finish and settle
     await new Promise(r => setTimeout(r, 3000));
@@ -94,7 +111,7 @@ test.describe('RBAC and Admin Screen E2E', () => {
 
   async function login(page, email, password) {
     await page.goto('/login');
-    
+
     // Wait for React hydration to attach onChange listeners
     await expect(page.getByTestId('login-email')).toBeEditable({ timeout: 5000 });
 
@@ -102,38 +119,50 @@ test.describe('RBAC and Admin Screen E2E', () => {
     await page.getByTestId('login-email').fill(email);
     await page.getByTestId('login-password').fill(password);
     await page.getByTestId('login-submit').click({ force: true });
-    
+
     // Wait for the auth context to update and render the sidebar's logged-in view
     await expect(page.getByTestId('logout-btn')).toBeVisible({ timeout: 10000 });
   }
 
   test('Access Denied (Unauthorized) - Standard user cannot view unauthorized project', async ({ page }) => {
     await login(page, 'standard1@example.com', 'password123');
-    
-    // Attempt to navigate directly to project-B
-    await page.goto('/projects/project-B');
-    
+
+    // standard1 has no swarmkit access; the gated test doc requiresLogin,
+    // which routes through ProtectedDocViewer and checks accessibleProjects.
+    await page.goto('/swarmkit/test-gated-doc');
+
     // Assertion: Should show Unauthorized or redirect
     await expect(page.getByTestId('unauthorized-message')).toBeAttached({ timeout: 5000 });
   });
 
   test('Project Dropdown Filtering - Only displays authorized projects', async ({ page }) => {
     await login(page, 'standard2@example.com', 'password123');
-    
+
     await page.goto('/');
-    
+
     const projectSelector = page.getByTestId('project-selector');
     await expect(projectSelector).toBeVisible();
 
-    await expect(projectSelector).toContainText('project-A');
-    await expect(projectSelector).toContainText('project-C');
-    await expect(projectSelector).not.toContainText('project-B');
+    // standard2 was granted swarmkit — it should appear.
+    await expect(projectSelector).toContainText('swarmkit');
+  });
+
+  test('Project Dropdown Filtering - Hides projects the user was not granted', async ({ page }) => {
+    await login(page, 'standard1@example.com', 'password123');
+
+    await page.goto('/');
+
+    const projectSelector = page.getByTestId('project-selector');
+    await expect(projectSelector).toBeVisible();
+
+    // standard1 has no explicit grants — swarmkit must not appear.
+    await expect(projectSelector).not.toContainText('swarmkit');
   });
 
   test('Admin Access and Granting Permissions', async ({ page }) => {
     // Authenticate as admin
     await login(page, 'admin@example.com', 'password123');
-    
+
     // Navigate to Admin UI
     await page.goto('/admin');
     await expect(page.getByTestId('admin-dashboard')).toBeVisible();
@@ -143,32 +172,32 @@ test.describe('RBAC and Admin Screen E2E', () => {
     await userRow.getByTestId('edit-user-btn').click({ force: true });
 
     const projectSelect = page.getByTestId('admin-project-select');
-    await projectSelect.selectOption('project-D');
-    
+    await projectSelect.selectOption('swarmkit');
+
     await page.getByTestId('save-user-btn').click({ force: true });
-    
+
     // Wait for the save to complete: the save-user-btn disappears
     // when editingUserId is set to null after successful updateDoc.
     await expect(page.getByTestId('save-user-btn')).toBeHidden({ timeout: 10000 });
 
-    // Verify the user row now shows project-D before logging out
+    // Verify the user row now shows swarmkit before logging out
     const updatedRow = page.locator('[data-testid="user-row"]', { hasText: 'standard1@example.com' });
-    await expect(updatedRow).toContainText('project-D', { timeout: 5000 });
+    await expect(updatedRow).toContainText('swarmkit', { timeout: 5000 });
 
     // Logout — the /admin page shows "access denied" when unauthenticated,
     // so navigate explicitly to /login after logout completes.
     await page.getByTestId('logout-btn').click({ force: true });
     await page.goto('/login');
     await expect(page.getByTestId('login-email')).toBeVisible({ timeout: 5000 });
-    
+
     await login(page, 'standard1@example.com', 'password123');
     await page.goto('/');
 
     const projectSelector = page.getByTestId('project-selector');
     await expect(projectSelector).toBeVisible();
-    
-    // Assertion: project-D should now be visible
-    await expect(projectSelector).toContainText('project-D');
+
+    // Assertion: swarmkit should now be visible
+    await expect(projectSelector).toContainText('swarmkit');
   });
 
   test('Admin Promotion - Toggling grants a standard user admin access', async ({ page }) => {
