@@ -15,6 +15,11 @@ export interface SidebarLink {
   requiresLogin?: boolean;
 }
 
+// Projects whose docs pipeline actually populates portal_docs_dev (see
+// docs/ops/infrastructure-map.md). Selecting Dev for any other project
+// would just 404 on every page, so the dropdown shouldn't offer it there.
+const PROJECTS_WITH_DEV_PREVIEW = ['sanjeev-ai'];
+
 // Preferred sort order for sections and groups. Anything not in here is sorted alphabetically.
 const PREFERRED_SECTION_ORDER = ['User Guides', 'Specs', 'Development', 'Support', 'Other'];
 const PREFERRED_GROUP_ORDER = [
@@ -52,8 +57,11 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
     const newProject = e.target.value;
     // Navigate home rather than staying on the current path: the current
     // page belongs to the OLD project and there's no guarantee an
-    // equivalent slug exists under the new one.
-    router.push(`/?project=${newProject}&env=${currentEnv}`);
+    // equivalent slug exists under the new one. Also drop back to staging
+    // if the new project has no dev-preview collection to avoid landing
+    // on a 404'd Dev view.
+    const newEnv = PROJECTS_WITH_DEV_PREVIEW.includes(newProject) ? currentEnv : 'staging';
+    router.push(`/?project=${newProject}&env=${newEnv}`);
   };
 
   const handleEnvChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -151,7 +159,9 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
             onChange={handleEnvChange}
             >
             <option value="staging">Staging</option>
-            <option value="dev">Dev</option>
+            {PROJECTS_WITH_DEV_PREVIEW.includes(currentProject) && (
+              <option value="dev">Dev</option>
+            )}
             </select>
         </div>
       </div>
