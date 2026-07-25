@@ -142,6 +142,7 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
               <>
                 <option value="sanjeev-ai">Sanjeev AI</option>
                 <option value="swarmkit">SwarmKit</option>
+                <option value="keystar">Keystar</option>
               </>
             ) : accessibleProjects.length > 0 ? (
               accessibleProjects.map(p => (

@@ -24,7 +24,7 @@ export default function AdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [togglingUserId, setTogglingUserId] = useState<string | null>(null);
 
-  const availableProjects = ['sanjeev-ai', 'swarmkit'];
+  const availableProjects = ['sanjeev-ai', 'swarmkit', 'keystar'];
 
   const fetchUsers = async () => {
     try {
