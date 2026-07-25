@@ -26,7 +26,7 @@ const PREFERRED_GROUP_ORDER = [
   'Onboarding', 'Projects', 'Unified Studio', 'Automation', 'Export & Publishing', 'Analytics', 'Notifications & Settings',
   'Features', 'Specifications',
   'General Support', 'Troubleshooting', 'Contact & Feedback',
-  'ADR', 'Planning', 'Testing', 'Framework'
+  'Architecture Decisions', 'Operations', 'Planning', 'Backlog Detail', 'Testing', 'Framework'
 ];
 
 export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
