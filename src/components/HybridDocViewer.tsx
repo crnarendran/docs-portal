@@ -5,10 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { mdxComponents } from './MDXComponents';
+import { createMdxComponents } from './MDXComponents';
 import { useAuth } from '@/context/AuthContext';
-
-const components: any = mdxComponents;
 
 export function HybridDocViewer({
     project,
@@ -24,6 +22,7 @@ export function HybridDocViewer({
     const searchParams = useSearchParams();
     const env = searchParams.get('env') || 'staging';
     const { user, loading: authLoading, isAdmin, accessibleProjects } = useAuth();
+    const components: any = createMdxComponents({ project, slug, env });
 
     const [content, setContent] = useState<string>(initialContent);
     const [loading, setLoading] = useState(false);

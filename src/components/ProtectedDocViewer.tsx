@@ -8,15 +8,13 @@ import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { mdxComponents } from './MDXComponents';
-// We need to cast mdxComponents to match ReactMarkdown's expected types if necessary,
-// but standard HTML element overrides usually match.
-const components: any = mdxComponents;
+import { createMdxComponents } from './MDXComponents';
 
 export function ProtectedDocViewer({ project, slug, date }: { project: string, slug: string, date?: string }) {
     const searchParams = useSearchParams();
     const env = searchParams.get('env') || 'staging';
     const { user, loading: authLoading, isAdmin, accessibleProjects } = useAuth();
+    const components: any = createMdxComponents({ project, slug, env });
     
     const [content, setContent] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
