@@ -68,13 +68,32 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
     const newEnv = e.target.value;
     router.push(`${pathname}?project=${currentProject}&env=${newEnv}`);
   };
-  
-  // Keep track of collapsed states. By default, 'User Guides' is expanded, others are collapsed
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
-    'User Guides': false,
+
+  // The doc slug the current route actually points at (if any) — used both
+  // to highlight the active link and to auto-expand its section/group on
+  // load, so a refresh doesn't bury the current page back under "User
+  // Guides" while everything else collapses.
+  const pathSlug = Array.isArray(params.slug) ? params.slug.join('/') : undefined;
+  const activeLink = pathSlug
+    ? links.find(l => (l.project || 'sanjeev-ai') === pathProject && l.slug === pathSlug)
+    : undefined;
+  const activeSection = activeLink ? String(activeLink.section || 'Other') : undefined;
+  const activeGroup = activeLink ? String(activeLink.category || 'Misc') : undefined;
+
+  // Keep track of collapsed states. By default, 'User Guides' is expanded,
+  // others are collapsed — except whichever section/group the current page
+  // actually lives in, which is force-expanded on load.
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = { 'User Guides': false };
+    if (activeSection) initial[activeSection] = false;
+    return initial;
   });
-  
-  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    if (activeGroup) initial[activeGroup] = false;
+    return initial;
+  });
 
   const toggleSection = (section: string) => {
     setCollapsedSections(prev => ({ ...prev, [section]: prev[section] === undefined ? false : !prev[section] }));
@@ -221,15 +240,24 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
 
                         {!isGroupCollapsed && (
                           <div className="flex flex-col gap-0.5 border-l border-white/10 ml-1.5 pl-2">
-                            {groupLinks.map(link => (
-                              <Link
-                                key={link.slug}
-                                href={`/${link.project || 'sanjeev-ai'}/${link.slug}?env=${currentEnv}`}
-                                className="px-2 py-1.5 text-sm rounded hover:bg-emerald-400/10 hover:text-emerald-400 transition-colors text-gray-400 truncate"
-                              >
-                                {link.title}
-                              </Link>
-                            ))}
+                            {groupLinks.map(link => {
+                              const isActive = (link.project || 'sanjeev-ai') === currentProject && link.slug === pathSlug;
+                              return (
+                                <Link
+                                  key={link.slug}
+                                  href={`/${link.project || 'sanjeev-ai'}/${link.slug}?env=${currentEnv}`}
+                                  aria-current={isActive ? 'page' : undefined}
+                                  className={
+                                    "px-2 py-1.5 text-sm rounded transition-colors truncate " +
+                                    (isActive
+                                      ? "bg-emerald-400/15 text-emerald-400 font-medium"
+                                      : "text-gray-400 hover:bg-emerald-400/10 hover:text-emerald-400")
+                                  }
+                                >
+                                  {link.title}
+                                </Link>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
