@@ -22,6 +22,14 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Pre-provisioned access for an email that hasn't signed in yet.
+    // Consumed (read + deleted) by the createPortalUserDocument trigger via
+    // the Admin SDK on that email's first sign-in, which bypasses these
+    // rules entirely — this only governs the admin panel's own read/write.
+    match /portal_invites/{email} {
+      allow read, write: if isAdmin();
+    }
+
     function hasProjectAccess(projectId) {
       let userDoc = get(/databases/$(database)/documents/portal_users/$(request.auth.uid));
       let projects = userDoc != null ? userDoc.data.get('accessibleProjects', []) : [];
