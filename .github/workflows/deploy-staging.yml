@@ -14,12 +14,16 @@ jobs:
 
       - name: Build frontend
         run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DOCS_PORTAL_STAGING }}' > /tmp/sa.json
           npm install
           # Next.js only auto-loads .env.production for `next build`; copy the
           # staging config over .env.production.local (highest precedence,
           # never committed) so this build gets staging's Firebase project.
           cp .env.staging .env.production.local
           npm run build
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa.json
+          FIREBASE_PROJECT_ID: docs-portal-staging
 
       - name: Install functions dependencies
         run: cd functions && npm install

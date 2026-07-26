@@ -14,8 +14,12 @@ jobs:
 
       - name: Build frontend
         run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DOCS_PORTAL_PROD }}' > /tmp/sa.json
           npm install
           npm run build
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa.json
+          FIREBASE_PROJECT_ID: docs-portal-prod
 
       - name: Install functions dependencies
         run: cd functions && npm install
