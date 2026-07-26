@@ -225,4 +225,53 @@ test.describe('RBAC and Admin Screen E2E', () => {
     await page.goto('/admin');
     await expect(page.getByTestId('admin-dashboard')).toBeVisible({ timeout: 10000 });
   });
+
+  test('Invite by Email - Pre-granted access applies on first sign-in', async ({ page }) => {
+    const inviteEmail = 'invited-user@example.com';
+
+    // Clean up a leftover invite/user from a previous run, if any.
+    await db.collection('portal_invites').doc(inviteEmail).delete().catch(() => {});
+    try {
+      const existing = await auth.getUserByEmail(inviteEmail);
+      await auth.deleteUser(existing.uid);
+      await db.collection('portal_users').doc(existing.uid).delete();
+    } catch {
+      // No pre-existing user — nothing to clean up.
+    }
+
+    await login(page, 'admin@example.com', 'password123');
+    await page.goto('/admin');
+    await expect(page.getByTestId('admin-dashboard')).toBeVisible();
+
+    await page.getByTestId('invite-email-input').fill(inviteEmail);
+    await page.getByTestId('invite-project-select').selectOption('keystar');
+    await page.getByTestId('invite-submit-btn').click({ force: true });
+
+    const inviteRow = page.locator('[data-testid="invite-row"]', { hasText: inviteEmail });
+    await expect(inviteRow).toBeVisible({ timeout: 10000 });
+    await expect(inviteRow).toContainText('keystar');
+
+    // Simulate the invited user's first-ever sign-in — this is what fires
+    // createPortalUserDocument and should consume the invite.
+    const invitedUser = await auth.createUser({
+      email: inviteEmail,
+      password: 'password123',
+    });
+
+    await page.getByTestId('logout-btn').click({ force: true });
+    await page.goto('/login');
+    await expect(page.getByTestId('login-email')).toBeVisible({ timeout: 5000 });
+    await login(page, inviteEmail, 'password123');
+
+    await page.goto('/');
+    const projectSelector = page.getByTestId('project-selector');
+    await expect(projectSelector).toBeVisible();
+    await expect(projectSelector).toContainText('keystar', { timeout: 10000 });
+
+    // The invite should be consumed (deleted) once applied.
+    const remainingInvite = await db.collection('portal_invites').doc(inviteEmail).get();
+    expect(remainingInvite.exists).toBe(false);
+
+    await db.collection('portal_users').doc(invitedUser.uid).delete().catch(() => {});
+  });
 });
