@@ -1,0 +1,34 @@
+name: Deploy (Staging)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - staging
+
+jobs:
+  deploy-staging:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build frontend
+        run: |
+          npm install
+          # Next.js only auto-loads .env.production for `next build`; copy the
+          # staging config over .env.production.local (highest precedence,
+          # never committed) so this build gets staging's Firebase project.
+          cp .env.staging .env.production.local
+          npm run build
+
+      - name: Install functions dependencies
+        run: cd functions && npm install
+
+      - name: Deploy to Firebase (Hosting, Firestore rules, Functions)
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DOCS_PORTAL_STAGING }}' > /tmp/sa.json
+          npx -y firebase-tools@latest deploy \
+            --only hosting,firestore:rules,functions \
+            --project staging --non-interactive --force
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa.json

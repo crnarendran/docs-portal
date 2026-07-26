@@ -1,0 +1,30 @@
+name: Deploy (Prod)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy-prod:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build frontend
+        run: |
+          npm install
+          npm run build
+
+      - name: Install functions dependencies
+        run: cd functions && npm install
+
+      - name: Deploy to Firebase (Hosting, Firestore rules, Functions)
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DOCS_PORTAL_PROD }}' > /tmp/sa.json
+          npx -y firebase-tools@latest deploy \
+            --only hosting,firestore:rules,functions \
+            --project production --non-interactive --force
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa.json

@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "module": "node16",
+    "esModuleInterop": true,
+    "moduleResolution": "node16",
+    "rootDir": "src",
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "outDir": "lib",
+    "sourceMap": true,
+    "strict": true,
+    "target": "es2022",
+    "skipLibCheck": true
+  },
+  "compileOnSave": true,
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.spec.ts",
+    "src/__tests__/**"
+  ]
+}

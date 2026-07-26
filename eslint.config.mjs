@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // functions/ is its own package with its own eslint config and
+    // dependency set (firebase-functions types aren't installed here).
+    "functions/**",
   ]),
 ]);
 

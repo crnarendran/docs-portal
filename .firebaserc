@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "staging": "docs-portal-staging",
+    "production": "docs-portal-prod"
+  }
+}
