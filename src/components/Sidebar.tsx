@@ -18,7 +18,7 @@ export interface SidebarLink {
 // Projects whose docs pipeline actually populates portal_docs_dev (see
 // docs/ops/infrastructure-map.md). Selecting Dev for any other project
 // would just 404 on every page, so the dropdown shouldn't offer it there.
-const PROJECTS_WITH_DEV_PREVIEW = ['sanjeev-ai'];
+const PROJECTS_WITH_DEV_PREVIEW = ['sanjeev-ai', 'shuddhi-moolam'];
 
 // Preferred sort order for sections and groups. Anything not in here is sorted alphabetically.
 const PREFERRED_SECTION_ORDER = ['User Guides', 'Specs', 'Development', 'Support', 'Other'];
