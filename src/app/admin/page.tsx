@@ -39,7 +39,7 @@ export default function AdminPage() {
   const [inviting, setInviting] = useState(false);
   const [revokingEmail, setRevokingEmail] = useState<string | null>(null);
 
-  const availableProjects = ['sanjeev-ai', 'swarmkit', 'keystar'];
+  const availableProjects = ['sanjeev-ai', 'swarmkit', 'keystar', 'shuddhi-moolam'];
 
   const fetchUsers = async () => {
     try {
