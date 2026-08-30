@@ -157,20 +157,12 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
             value={currentProject}
             onChange={handleProjectChange}
             >
-            {accessibleProjects.includes('*') ? (
-              <>
-                <option value="sanjeev-ai">Sanjeev AI</option>
-                <option value="swarmkit">SwarmKit</option>
-                <option value="keystar">Keystar</option>
-                <option value="shuddhi-moolam">Shuddhi-Moolam</option>
-              </>
-            ) : accessibleProjects.length > 0 ? (
-              accessibleProjects.map(p => (
+            {Array.from(new Set(links.map((l) => l.project || 'sanjeev-ai')))
+              .filter(p => accessibleProjects.includes('*') || accessibleProjects.includes(p))
+              .sort()
+              .map(p => (
                 <option key={p} value={p}>{p}</option>
-              ))
-            ) : (
-              <option value="">No projects</option>
-            )}
+              ))}
             </select>
             
             <select

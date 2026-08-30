@@ -39,13 +39,17 @@ export default function AdminPage() {
   const [inviting, setInviting] = useState(false);
   const [revokingEmail, setRevokingEmail] = useState<string | null>(null);
 
-  const availableProjects = ['sanjeev-ai', 'swarmkit', 'keystar', 'shuddhi-moolam'];
+  const [availableProjects, setAvailableProjects] = useState<string[]>([]);
 
-  const fetchUsers = async () => {
+  const fetchData = async () => {
     try {
-      const snapshot = await getDocs(collection(db, 'portal_users'));
+      const [usersSnap, docsSnap] = await Promise.all([
+        getDocs(collection(db, 'portal_users')),
+        getDocs(collection(db, 'portal_docs'))
+      ]);
+
       const fetchedUsers: PortalUser[] = [];
-      snapshot.forEach(doc => {
+      usersSnap.forEach(doc => {
         const data = doc.data();
         fetchedUsers.push({
           uid: data.uid || doc.id,
@@ -55,8 +59,15 @@ export default function AdminPage() {
         });
       });
       setUsers(fetchedUsers);
+
+      const projects = new Set<string>();
+      docsSnap.forEach(doc => {
+        const data = doc.data();
+        if (data.project) projects.add(data.project);
+      });
+      setAvailableProjects(Array.from(projects).sort());
     } catch (e: any) {
-      console.error("[AdminPage] fetchUsers error:", e);
+      console.error("[AdminPage] fetchData error:", e);
       setError(e.message);
     } finally {
       setFetching(false);
@@ -84,8 +95,8 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!loading && isAdmin) {
-      console.log("[AdminPage] fetching users...");
-      fetchUsers();
+      console.log("[AdminPage] fetching users and projects...");
+      fetchData();
       fetchInvites();
     } else if (!loading) {
       console.log("[AdminPage] not fetching, isAdmin:", isAdmin);
