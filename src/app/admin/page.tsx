@@ -177,7 +177,7 @@ export default function AdminPage() {
         accessibleProjects: editProjects
       });
       setEditingUserId(null);
-      fetchUsers();
+      fetchData();
     } catch (e: any) {
       console.error("[AdminPage] save error:", e);
       setError(e.message);
@@ -194,7 +194,7 @@ export default function AdminPage() {
     setError(null);
     try {
       await grantPortalAdmin({ targetUid: u.uid, isAdmin: !u.isAdmin });
-      await fetchUsers();
+      await fetchData();
     } catch (e: unknown) {
       console.error("[AdminPage] toggle admin error:", e);
       setError(e instanceof Error ? e.message : String(e));
