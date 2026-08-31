@@ -1,14 +1,16 @@
 'use client';
 
 import { useAuth } from '@/context/AuthContext';
-import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
-export default function LoginPage() {
+function LoginContent() {
   const { login, user, loading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextParam = searchParams.get('next');
 
   const [testEmail, setTestEmail] = useState('');
   const [testPassword, setTestPassword] = useState('');
@@ -17,9 +19,14 @@ export default function LoginPage() {
     if (!loading && user) {
       // Access to any given page is enforced per-page by AuthGuard
       // (login + project-level access), not gated here.
-      router.push('/');
+      let redirectPath = '/';
+      // Guard against open redirect: ensure it's a relative path starting with '/' and not '//' (protocol-relative)
+      if (nextParam && nextParam.startsWith('/') && !nextParam.startsWith('//')) {
+        redirectPath = nextParam;
+      }
+      router.push(redirectPath);
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, nextParam]);
 
   const handleTestLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,5 +103,13 @@ export default function LoginPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-[60vh] flex flex-col items-center justify-center">Loading...</div>}>
+      <LoginContent />
+    </Suspense>
   );
 }

@@ -22,6 +22,8 @@ import { Suspense } from "react";
 import { AuthProvider } from "@/context/AuthContext";
 import { getAllDocs } from "@/lib/mdx";
 
+import { AppLayoutClient } from "@/components/AppLayoutClient";
+
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -43,16 +45,17 @@ export default async function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100">
+      <body className="min-h-full flex bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 overflow-hidden">
         <AuthProvider>
-          <Suspense fallback={<aside className="w-72 h-screen bg-zinc-950" />}>
-            <Sidebar links={sidebarLinks} />
-          </Suspense>
-          <main className="flex-1 overflow-auto bg-white dark:bg-black p-8">
-            <div className="max-w-4xl mx-auto">
-              {children}
-            </div>
-          </main>
+          <AppLayoutClient 
+            sidebar={
+              <Suspense fallback={<aside className="w-72 h-screen bg-zinc-950" />}>
+                <Sidebar links={sidebarLinks} />
+              </Suspense>
+            }
+          >
+            {children}
+          </AppLayoutClient>
         </AuthProvider>
       </body>
     </html>
