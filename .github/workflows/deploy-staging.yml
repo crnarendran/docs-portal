@@ -5,12 +5,25 @@ on:
   push:
     branches:
       - staging
+  repository_dispatch:
+    # Fired by sanjeev-ai/swarmkit/keystar's sync-docs workflows after they
+    # write new content to docs-portal-staging's Firestore. This is a
+    # static export — new content isn't visible until a rebuild happens,
+    # and nothing else triggers one, so this is the mechanism that keeps
+    # the live site from going stale after a content-only sync.
+    types: [docs-synced-staging]
 
 jobs:
   deploy-staging:
     runs-on: ubuntu-latest
     steps:
+      # repository_dispatch events have no natural ref, so actions/checkout
+      # defaults to this repo's default branch (main) — wrong for this
+      # workflow. Force staging explicitly; harmless for the push/
+      # workflow_dispatch triggers since they're already on staging.
       - uses: actions/checkout@v4
+        with:
+          ref: staging
 
       - name: Build frontend
         run: |

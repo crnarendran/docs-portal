@@ -5,12 +5,22 @@ on:
   push:
     branches:
       - main
+  repository_dispatch:
+    # Fired by sanjeev-ai/swarmkit/keystar's sync-docs workflows after they
+    # write new content to docs-portal-prod's Firestore. See
+    # deploy-staging.yml for why this exists.
+    types: [docs-synced-prod]
 
 jobs:
   deploy-prod:
     runs-on: ubuntu-latest
     steps:
+      # main is this repo's default branch, so this is already correct for
+      # repository_dispatch's ref-less events, but pin it explicitly so
+      # that stays true even if the default branch ever changes.
       - uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Build frontend
         run: |
