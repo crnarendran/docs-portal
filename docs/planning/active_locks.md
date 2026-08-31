@@ -164,3 +164,5 @@ things — one for humans, one for uniqueness:
 
 (Move rows here — or delete them — when a feature lands or is abandoned. Kept
 briefly for traceability, then pruned.)
+|   D o c s - P o r t a l   F i x e s   ( L o g i n   +   S i d e b a r )   |   a g e n t @ a n t i g r a v i t y   -   a n t i g r a v i t y / p r o   |   d o c s - p o r t a l - f i x e s # 1 6 b f 1 9 8 7   |   d e v   |   2 0 2 6 - 0 8 - 3 1   1 9 : 1 0   |   2 0 2 6 - 0 8 - 3 1   1 9 : 1 0   |   s r c / a p p / l o g i n / p a g e . t s x ,   A u t h G u a r d . t s x ,   S i d e b a r . t s x ,   l a y o u t . t s x   |   A c t i v e   |  
+ 
