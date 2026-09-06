@@ -27,7 +27,7 @@ export function AppLayoutClient({ sidebar, children }: { sidebar: React.ReactNod
       >
         {sidebar}
       </div>
-      <main className="flex-1 overflow-auto bg-white dark:bg-black p-8 pt-16 relative min-w-0">
+      <main className="flex-1 min-h-0 overflow-auto bg-white dark:bg-black p-8 pt-16 relative min-w-0">
         {mounted && (
           <button 
             onClick={toggleSidebar}
