@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 
 import { Suspense } from "react";
 import { AuthProvider } from "@/context/AuthContext";
-import { getAllDocs } from "@/lib/mdx";
+import { getAllDocs, getDevPreviewProjects } from "@/lib/mdx";
 
 import { AppLayoutClient } from "@/components/AppLayoutClient";
 
@@ -29,7 +29,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const docs = await getAllDocs();
+  const [docs, devPreviewProjects] = await Promise.all([getAllDocs(), getDevPreviewProjects()]);
   const sidebarLinks = docs.map(d => ({
     slug: d.slug,
     project: d.project,
@@ -50,7 +50,7 @@ export default async function RootLayout({
           <AppLayoutClient 
             sidebar={
               <Suspense fallback={<aside className="w-72 h-screen bg-zinc-950" />}>
-                <Sidebar links={sidebarLinks} />
+                <Sidebar links={sidebarLinks} devPreviewProjects={devPreviewProjects} />
               </Suspense>
             }
           >

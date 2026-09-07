@@ -15,11 +15,6 @@ export interface SidebarLink {
   requiresLogin?: boolean;
 }
 
-// Projects whose docs pipeline actually populates portal_docs_dev (see
-// docs/ops/infrastructure-map.md). Selecting Dev for any other project
-// would just 404 on every page, so the dropdown shouldn't offer it there.
-const PROJECTS_WITH_DEV_PREVIEW = ['sanjeev-ai', 'shuddhi-moolam'];
-
 // Preferred sort order for sections and groups. Anything not in here is sorted alphabetically.
 const PREFERRED_SECTION_ORDER = ['User Guides', 'Specs', 'Development', 'Support', 'Other'];
 const PREFERRED_GROUP_ORDER = [
@@ -29,7 +24,10 @@ const PREFERRED_GROUP_ORDER = [
   'Architecture Decisions', 'Operations', 'Planning', 'Backlog Detail', 'Testing', 'Framework'
 ];
 
-export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
+// Projects that have any dev-preview content (portal_docs_dev), derived at
+// build time in layout.tsx and passed down. Selecting Dev for a project not in
+// this list would 404 every page, so the dropdown only offers it for these.
+export function Sidebar({ links = [], devPreviewProjects = [] }: { links?: SidebarLink[], devPreviewProjects?: string[] }) {
   const { user, isAdmin, accessibleProjects, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -60,7 +58,7 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
     // equivalent slug exists under the new one. Also drop back to staging
     // if the new project has no dev-preview collection to avoid landing
     // on a 404'd Dev view.
-    const newEnv = PROJECTS_WITH_DEV_PREVIEW.includes(newProject) ? currentEnv : 'staging';
+    const newEnv = devPreviewProjects.includes(newProject) ? currentEnv : 'staging';
     router.push(`/?project=${newProject}&env=${newEnv}`);
   };
 
@@ -172,7 +170,7 @@ export function Sidebar({ links = [] }: { links?: SidebarLink[] }) {
             onChange={handleEnvChange}
             >
             <option value="staging">Staging</option>
-            {PROJECTS_WITH_DEV_PREVIEW.includes(currentProject) && (
+            {devPreviewProjects.includes(currentProject) && (
               <option value="dev">Dev</option>
             )}
             </select>

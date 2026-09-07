@@ -10,7 +10,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { createMdxComponents } from './MDXComponents';
 
-export function ProtectedDocViewer({ project, slug, date }: { project: string, slug: string, date?: string }) {
+export function ProtectedDocViewer({ project, slug, date, isDraft }: { project: string, slug: string, date?: string, isDraft?: boolean }) {
     const searchParams = useSearchParams();
     const env = searchParams.get('env') || 'staging';
     const { user, loading: authLoading, isAdmin, accessibleProjects } = useAuth();
@@ -47,7 +47,9 @@ export function ProtectedDocViewer({ project, slug, date }: { project: string, s
 
                 // Convert slash to underscore and prefix with project
                 const docId = `${project}_${slug.replace(/\//g, '_')}`;
-                const collectionName = env === 'dev' ? 'portal_docs_dev' : 'portal_docs';
+                // A draft (dev-only) doc has no promoted copy, so read the dev
+                // collection regardless of the selected env.
+                const collectionName = (env === 'dev' || isDraft) ? 'portal_docs_dev' : 'portal_docs';
                 const docRef = doc(db, collectionName, docId);
                 const docSnap = await getDoc(docRef);
 
@@ -76,7 +78,7 @@ export function ProtectedDocViewer({ project, slug, date }: { project: string, s
         return () => {
             isMounted = false;
         };
-    }, [slug, authLoading, user, isAdmin, accessibleProjects, project, env]);
+    }, [slug, authLoading, user, isAdmin, accessibleProjects, project, env, isDraft]);
 
     if (loading) {
         return (
