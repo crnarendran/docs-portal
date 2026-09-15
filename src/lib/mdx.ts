@@ -1,6 +1,7 @@
 import { cache } from 'react';
 import { getFirestore, QueryDocumentSnapshot } from 'firebase-admin/firestore';
 import { initializeApp, getApps } from 'firebase-admin/app';
+import { isPublicDoc } from './visibility';
 
 // Ensure Firebase Admin is initialized
 if (getApps().length === 0) {
@@ -22,7 +23,13 @@ export interface DocMeta {
   date?: string;
   section?: string;
   category?: string;
-  requiresLogin?: boolean;
+  // Raw frontmatter opt-in, see ./visibility — read this only through
+  // isPublicDoc(), never directly.
+  public?: boolean;
+  // The canonical, computed visibility flag — see isPublicDoc in
+  // ./visibility. Always present and always correct; do not re-derive
+  // visibility from `public` or `requiresLogin` anywhere else.
+  isPublic: boolean;
   project?: string;
   [key: string]: any;
 }
@@ -36,21 +43,28 @@ export interface Doc {
 
 const mapDoc = (docSnap: QueryDocumentSnapshot): Doc => {
   const data = docSnap.data();
+  const rawMeta = data.meta || {};
+  // Computed from the RAW frontmatter, before any defaulting below — see
+  // isPublicDoc for why this can't be re-derived from a coerced/defaulted
+  // requiresLogin value.
+  const isPublic = isPublicDoc(rawMeta);
   return {
     slug: data.slug,
     project: data.project || 'sanjeev-ai', // default to sanjeev-ai for older docs
     meta: {
-      title: data.meta?.title || data.slug,
-      section: data.meta?.section || 'Other',
-      category: data.meta?.category || 'Misc',
-      requiresLogin: data.meta?.requiresLogin === true,
+      title: rawMeta.title || data.slug,
+      section: rawMeta.section || 'Other',
+      category: rawMeta.category || 'Misc',
+      ...rawMeta,
       project: data.project || 'sanjeev-ai',
-      ...data.meta,
-      date: typeof data.meta?.date?.toDate === 'function'
-        ? data.meta.date.toDate().toISOString()
-        : data.meta?.date
+      isPublic,
+      date: typeof rawMeta.date?.toDate === 'function'
+        ? rawMeta.date.toDate().toISOString()
+        : rawMeta.date
     },
-    content: data.content || ''
+    // DP-10: a protected doc's text never enters the build at all — there is
+    // no client-side check that can withhold it once it's in a static file.
+    content: isPublic ? (data.content || '') : ''
   };
 };
 

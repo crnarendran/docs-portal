@@ -41,6 +41,18 @@ jobs:
       - name: Build functions
         run: cd functions && npm ci && npm run build
 
+      # DP-12 — CI leak guard. The build above runs with the Admin SDK, which
+      # bypasses Firestore's security rules; this is the only check that
+      # looks at what actually landed in the static export. A regression here
+      # is silent otherwise — the login screen still renders fine either way.
+      - name: DP-12 — verify no protected doc leaked into the build
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DOCS_PORTAL_STAGING }}' > /tmp/sa.json
+          node scripts/check-protected-leak.mjs out
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa.json
+          FIREBASE_PROJECT_ID: docs-portal-staging
+
       - name: Deploy to Firebase (Hosting, Firestore rules, Functions)
         run: |
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DOCS_PORTAL_STAGING }}' > /tmp/sa.json

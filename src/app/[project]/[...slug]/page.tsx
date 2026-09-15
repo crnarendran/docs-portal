@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import { getAllDocSlugs, getDocByProjectAndSlug, getDevDocByProjectAndSlug } from '@/lib/mdx';
+import { isPublicDoc } from '@/lib/visibility';
 import { notFound } from 'next/navigation';
 import { AuthGuard } from '@/components/AuthGuard';
 import { ProtectedDocViewer } from '@/components/ProtectedDocViewer';
@@ -53,19 +54,21 @@ export default async function DocPage({
   }
 
   const isDraft = !stagingDoc;
+  // DP-10: this is the ONLY switch between the two viewers. A doc is public
+  // only on explicit opt-in (see isPublicDoc) — everything else is
+  // protected, gated on sign-in AND project access (isInternal), matching
+  // the "signed in without access" state the product spec requires. There
+  // is no longer a separate "requires login but no project check" tier.
+  const isPublic = isPublicDoc(doc.meta);
 
   return (
     <Suspense fallback={<DocViewerFallback />}>
-      <AuthGuard
-        project={doc.project}
-        isInternal={doc.meta.isInternal === true}
-        requiresLogin={doc.meta.requiresLogin === true}
-      >
+      <AuthGuard project={doc.project} isInternal={!isPublic} requiresLogin={!isPublic}>
         {isDraft && <DraftBanner />}
-        {doc.meta.requiresLogin === true ? (
-          <ProtectedDocViewer project={doc.project} slug={doc.slug} date={doc.meta.date} isDraft={isDraft} />
-        ) : (
+        {isPublic ? (
           <HybridDocViewer project={doc.project} slug={doc.slug} initialContent={doc.content} date={doc.meta.date} />
+        ) : (
+          <ProtectedDocViewer project={doc.project} slug={doc.slug} date={doc.meta.date} isDraft={isDraft} />
         )}
       </AuthGuard>
     </Suspense>

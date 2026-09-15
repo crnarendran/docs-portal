@@ -1,18 +1,19 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname, useSearchParams, useParams } from 'next/navigation';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
+import { db } from '@/lib/firebase';
+import { isPublicDoc } from '@/lib/visibility';
 
 export interface SidebarLink {
   slug: string;
   project?: string;
   title: string;
-  isInternal: boolean;
   section?: string;
   category?: string;
-  requiresLogin?: boolean;
 }
 
 // Preferred sort order for sections and groups. Anything not in here is sorted alphabetically.
@@ -27,7 +28,20 @@ const PREFERRED_GROUP_ORDER = [
 // Projects that have any dev-preview content (portal_docs_dev), derived at
 // build time in layout.tsx and passed down. Selecting Dev for a project not in
 // this list would 404 every page, so the dropdown only offers it for these.
-export function Sidebar({ links = [], devPreviewProjects = [] }: { links?: SidebarLink[], devPreviewProjects?: string[] }) {
+//
+// `links` (DP-11) is public docs ONLY — baked at build time, safe for anyone
+// to read. `allProjects` is every project that has ANY doc, public or not; it
+// only names projects (already visible in every doc route), never titles or
+// content, and keeps the project selector populated while nothing is public.
+export function Sidebar({
+  links = [],
+  devPreviewProjects = [],
+  allProjects = [],
+}: {
+  links?: SidebarLink[];
+  devPreviewProjects?: string[];
+  allProjects?: string[];
+}) {
   const { user, isAdmin, accessibleProjects, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -35,6 +49,66 @@ export function Sidebar({ links = [], devPreviewProjects = [] }: { links?: Sideb
   const params = useParams();
 
   const selectRef = useRef<HTMLSelectElement>(null);
+
+  // DP-11: protected docs' titles are fetched here, after sign-in, under
+  // Firestore's existing rules (isSignedIn() && hasProjectAccess) — never
+  // baked into the static build. sanjeev-ai is always queried because the
+  // rules grant it to any signed-in user regardless of accessibleProjects
+  // (firestore.rules hasProjectAccess). Admin / '*' queries the whole
+  // collection once; everyone else queries per accessible project, which
+  // the rules can verify per query — a project the user does NOT have
+  // (stale grant, race on first sign-in) makes that one query fail, which is
+  // caught and skipped rather than breaking the rest of the sidebar.
+  // Scoped to portal_docs (staging) only, matching links — dev-only docs
+  // were already outside the sidebar before this change.
+  const [protectedLinks, setProtectedLinks] = useState<SidebarLink[]>([]);
+
+  useEffect(() => {
+    if (!user) {
+      setProtectedLinks([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      const unrestricted = isAdmin || accessibleProjects.includes('*');
+      const projects: (string | null)[] = unrestricted
+        ? [null]
+        : Array.from(new Set(['sanjeev-ai', ...accessibleProjects]));
+
+      const results: SidebarLink[] = [];
+      for (const project of projects) {
+        try {
+          const q = project
+            ? query(collection(db, 'portal_docs'), where('project', '==', project))
+            : collection(db, 'portal_docs');
+          const snap = await getDocs(q);
+          snap.forEach((docSnap) => {
+            const data = docSnap.data();
+            if (isPublicDoc(data.meta)) return; // already in the static `links`
+            results.push({
+              slug: data.slug,
+              project: data.project || 'sanjeev-ai',
+              title: data.meta?.title || data.slug,
+              section: data.meta?.section,
+              category: data.meta?.category,
+            });
+          });
+        } catch (e) {
+          console.error('[Sidebar] protected doc listing failed for project', project, e);
+        }
+      }
+
+      if (!cancelled) setProtectedLinks(results);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, isAdmin, accessibleProjects]);
+
+  const allLinks = links.concat(protectedLinks);
 
   // Current selection, reused both by the switchers below and by every
   // sidebar nav link so navigating the doc tree doesn't reset it.
@@ -73,7 +147,7 @@ export function Sidebar({ links = [], devPreviewProjects = [] }: { links?: Sideb
   // Guides" while everything else collapses.
   const pathSlug = Array.isArray(params.slug) ? params.slug.join('/') : undefined;
   const activeLink = pathSlug
-    ? links.find(l => (l.project || 'sanjeev-ai') === pathProject && l.slug === pathSlug)
+    ? allLinks.find(l => (l.project || 'sanjeev-ai') === pathProject && l.slug === pathSlug)
     : undefined;
   const activeSection = activeLink ? String(activeLink.section || 'Other') : undefined;
   const activeGroup = activeLink ? String(activeLink.category || 'Misc') : undefined;
@@ -106,7 +180,7 @@ export function Sidebar({ links = [], devPreviewProjects = [] }: { links?: Sideb
 
   const isAuthorizedForProject = isAdmin || accessibleProjects.includes(currentProject) || accessibleProjects.includes('*') || currentProject === 'sanjeev-ai';
 
-  links.forEach(link => {
+  allLinks.forEach(link => {
     if (!isAuthorizedForProject) return;
     if (link.slug === 'index' || link.slug === '') return;
 
@@ -114,9 +188,9 @@ export function Sidebar({ links = [], devPreviewProjects = [] }: { links?: Sideb
     const linkProject = link.project || 'sanjeev-ai';
     if (linkProject !== currentProject) return;
 
-    // Determine visibility based on user status
-    if (link.requiresLogin && !user) return;
-    if (link.isInternal && !hasProjectAccess) return;
+    // No requiresLogin/isInternal check needed here (DP-10/DP-11): `links`
+    // is public-only by construction, and `protectedLinks` only ever
+    // contains what Firestore's rules already allowed this user to read.
 
     let section = String(link.section || 'Other');
     let group = String(link.category || 'Misc');
@@ -155,7 +229,7 @@ export function Sidebar({ links = [], devPreviewProjects = [] }: { links?: Sideb
             value={currentProject}
             onChange={handleProjectChange}
             >
-            {Array.from(new Set(links.map((l) => l.project || 'sanjeev-ai')))
+            {allProjects
               .filter(p => accessibleProjects.includes('*') || accessibleProjects.includes(p))
               .sort()
               .map(p => (
@@ -261,12 +335,17 @@ export function Sidebar({ links = [], devPreviewProjects = [] }: { links?: Sideb
         })}
 
         {!user ? (
-          <Link
-            href="/login"
-            className="px-3 py-2 mt-auto rounded border border-gray-700 hover:bg-emerald-400/10 hover:border-emerald-500/50 hover:text-emerald-400 transition-colors text-gray-300 text-center"
-          >
-            Login
-          </Link>
+          <div className="mt-auto flex flex-col gap-2">
+            <p className="text-xs text-gray-500 text-center px-2">
+              Sign in to see project documentation.
+            </p>
+            <Link
+              href="/login"
+              className="px-3 py-2 rounded border border-gray-700 hover:bg-emerald-400/10 hover:border-emerald-500/50 hover:text-emerald-400 transition-colors text-gray-300 text-center"
+            >
+              Login
+            </Link>
+          </div>
         ) : null}
       </nav>
       

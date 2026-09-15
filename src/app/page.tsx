@@ -1,9 +1,13 @@
 import { getAllDocs } from '@/lib/mdx';
+import { isPublicDoc } from '@/lib/visibility';
 import Link from 'next/link';
 
 export default async function Home() {
-  const docs = await getAllDocs();
-  
+  // Same rule as the sidebar (DP-11): this page is static and unauthenticated,
+  // so it must never list a protected doc's title/description — only public,
+  // explicitly-opted-in docs render as cards here.
+  const docs = (await getAllDocs()).filter(d => isPublicDoc(d.meta));
+
   return (
     <div className="space-y-6">
       <h1 className="text-4xl font-extrabold tracking-tight">Unified Documentation Portal</h1>
