@@ -32,7 +32,7 @@ jobs:
           FIREBASE_PROJECT_ID: docs-portal-prod
 
       - name: Build functions
-        run: cd functions && npm install && npm run build
+        run: cd functions && npm ci && npm run build
 
       # DP-12 — CI leak guard. See deploy-staging.yml for why this exists.
       - name: DP-12 — verify no protected doc leaked into the build
