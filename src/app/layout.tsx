@@ -35,17 +35,21 @@ export default async function RootLayout({
   // carries ONLY public docs. A signed-in, authorized user's protected docs
   // are fetched by Sidebar itself after sign-in, under Firestore's existing
   // rules, so titles/slugs of private work never enter the build at all.
-  const sidebarLinks = docs.filter(d => isPublicDoc(d.meta)).map(d => ({
+  const publicDocs = docs.filter(d => isPublicDoc(d.meta));
+  const sidebarLinks = publicDocs.map(d => ({
     slug: d.slug,
     project: d.project,
     title: d.meta.title || d.slug,
     section: d.meta.section,
     category: d.meta.category,
   }));
-  // Every project that has ANY doc, public or protected — names projects
-  // only (already visible in every doc route), never titles/content — so
-  // the project selector stays populated while nothing is public (DP-13).
-  const allProjects = [...new Set(docs.map(d => d.project))].sort();
+  // DP-16: projects with ANY doc — protected or not — are project names DP-11
+  // already decided to stop shipping (a project a user can't read shouldn't
+  // even be nameable from the static build). Only PUBLIC-doc projects are
+  // baked in; Sidebar.tsx extends this client-side, after sign-in, from the
+  // same protected-doc fetch DP-11 already does — the project list gets the
+  // same treatment as the doc links themselves, not a build-time shortcut.
+  const publicProjects = [...new Set(publicDocs.map(d => d.project))].sort();
 
   return (
     <html
@@ -57,7 +61,7 @@ export default async function RootLayout({
           <AppLayoutClient 
             sidebar={
               <Suspense fallback={<aside className="w-72 h-screen bg-zinc-950" />}>
-                <Sidebar links={sidebarLinks} devPreviewProjects={devPreviewProjects} allProjects={allProjects} />
+                <Sidebar links={sidebarLinks} devPreviewProjects={devPreviewProjects} publicProjects={publicProjects} />
               </Suspense>
             }
           >

@@ -30,17 +30,18 @@ const PREFERRED_GROUP_ORDER = [
 // this list would 404 every page, so the dropdown only offers it for these.
 //
 // `links` (DP-11) is public docs ONLY — baked at build time, safe for anyone
-// to read. `allProjects` is every project that has ANY doc, public or not; it
-// only names projects (already visible in every doc route), never titles or
-// content, and keeps the project selector populated while nothing is public.
+// to read. `publicProjects` is every project that has a PUBLIC doc — project
+// names of protected-only projects are metadata DP-11 already decided not to
+// ship (DP-16). Protected projects are added to the selector the same way
+// protected links are: fetched client-side, after sign-in, below.
 export function Sidebar({
   links = [],
   devPreviewProjects = [],
-  allProjects = [],
+  publicProjects = [],
 }: {
   links?: SidebarLink[];
   devPreviewProjects?: string[];
-  allProjects?: string[];
+  publicProjects?: string[];
 }) {
   const { user, isAdmin, accessibleProjects, logout } = useAuth();
   const router = useRouter();
@@ -109,6 +110,15 @@ export function Sidebar({
   }, [user, isAdmin, accessibleProjects]);
 
   const allLinks = links.concat(protectedLinks);
+  // DP-16: the project selector's option list. publicProjects is always
+  // offered (baked at build time, safe for anyone). Protected projects come
+  // from protectedLinks — already scoped to what THIS user can read, since
+  // that fetch only succeeds for projects Firestore's rules grant them — so
+  // no additional accessibleProjects filter belongs here; applying one would
+  // hide public projects from a user with no grants yet, which was DP-16's bug.
+  const selectableProjects = [
+    ...new Set([...publicProjects, ...protectedLinks.map(l => l.project || 'sanjeev-ai')]),
+  ].sort();
 
   // Current selection, reused both by the switchers below and by every
   // sidebar nav link so navigating the doc tree doesn't reset it.
@@ -229,12 +239,9 @@ export function Sidebar({
             value={currentProject}
             onChange={handleProjectChange}
             >
-            {allProjects
-              .filter(p => accessibleProjects.includes('*') || accessibleProjects.includes(p))
-              .sort()
-              .map(p => (
-                <option key={p} value={p}>{p}</option>
-              ))}
+            {selectableProjects.map(p => (
+              <option key={p} value={p}>{p}</option>
+            ))}
             </select>
             
             <select
