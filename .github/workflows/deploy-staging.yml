@@ -41,6 +41,12 @@ jobs:
       - name: Build functions
         run: cd functions && npm ci && npm run build
 
+      # DP-12 self-test — regression-tests the leak guard's OWN matching
+      # logic (no Firestore, no build) before trusting its verdict below. A
+      # guard that stops failing on the real leak is worse than no guard.
+      - name: DP-12 — leak guard self-test
+        run: npm run test:leak-guard
+
       # DP-12 — CI leak guard. The build above runs with the Admin SDK, which
       # bypasses Firestore's security rules; this is the only check that
       # looks at what actually landed in the static export. A regression here
