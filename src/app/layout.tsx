@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Sidebar } from "@/components/Sidebar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,7 +17,6 @@ export const metadata: Metadata = {
   description: "Unified Documentation Portal",
 };
 
-import { Suspense } from "react";
 import { AuthProvider } from "@/context/AuthContext";
 import { getAllDocs, getDevPreviewProjects } from "@/lib/mdx";
 import { isPublicDoc } from "@/lib/visibility";
@@ -58,12 +56,10 @@ export default async function RootLayout({
     >
       <body className="h-dvh flex bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 overflow-hidden">
         <AuthProvider>
-          <AppLayoutClient 
-            sidebar={
-              <Suspense fallback={<aside className="w-72 h-screen bg-zinc-950" />}>
-                <Sidebar links={sidebarLinks} devPreviewProjects={devPreviewProjects} publicProjects={publicProjects} />
-              </Suspense>
-            }
+          <AppLayoutClient
+            links={sidebarLinks}
+            devPreviewProjects={devPreviewProjects}
+            publicProjects={publicProjects}
           >
             {children}
           </AppLayoutClient>

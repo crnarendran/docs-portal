@@ -1,15 +1,36 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { Sidebar, type SidebarLink } from './Sidebar';
 
-export function AppLayoutClient({ sidebar, children }: { sidebar: React.ReactNode, children: React.ReactNode }) {
+// Functions can't cross the server/client boundary as props (layout.tsx is a
+// Server Component), so this component owns both the collapse state AND the
+// Sidebar render — it takes plain, serializable data instead of a render-prop.
+export function AppLayoutClient({
+  links,
+  devPreviewProjects,
+  publicProjects,
+  children,
+}: {
+  links: SidebarLink[];
+  devPreviewProjects: string[];
+  publicProjects: string[];
+  children: React.ReactNode;
+}) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
-  
+
   useEffect(() => {
     setMounted(true);
     const stored = localStorage.getItem('sidebar-collapsed');
-    if (stored) setIsCollapsed(stored === 'true');
+    if (stored !== null) {
+      setIsCollapsed(stored === 'true');
+    } else {
+      // DP-18: no saved preference yet (first visit) — default collapsed
+      // under md so the fixed-width sidebar doesn't squeeze main content
+      // into an unreadable column on a phone.
+      setIsCollapsed(window.matchMedia('(max-width: 767px)').matches);
+    }
   }, []);
 
   const toggleSidebar = () => {
@@ -18,34 +39,44 @@ export function AppLayoutClient({ sidebar, children }: { sidebar: React.ReactNod
     localStorage.setItem('sidebar-collapsed', String(next));
   };
 
+  // Collapsed: Sidebar renders its own slim top bar (DP-17), stacked above
+  // main at any width. Expanded: side-by-side on md+ as before; under md the
+  // sidebar wrapper is `fixed` (see below) so it overlays main instead of
+  // squeezing it (DP-18) — direction doesn't matter for a fixed element, but
+  // md:flex-row keeps the desktop push layout exactly as it was.
+  const direction = isCollapsed ? 'flex-col' : 'flex-col md:flex-row';
+
   return (
-    <>
-      <div 
-        className={`transition-all duration-300 ease-in-out shrink-0 ${
-          isCollapsed ? 'w-0 overflow-hidden' : 'w-72'
-        }`}
+    <div className={`flex ${direction} w-full h-full min-h-0`}>
+      {mounted && !isCollapsed && (
+        <div
+          className="fixed inset-0 z-30 bg-black/60 md:hidden"
+          onClick={toggleSidebar}
+          aria-hidden="true"
+        />
+      )}
+      <div
+        className={
+          isCollapsed
+            ? 'w-full shrink-0'
+            : 'w-72 shrink-0 fixed inset-y-0 left-0 z-40 md:static md:inset-auto md:z-auto'
+        }
       >
-        {sidebar}
+        <Suspense fallback={<aside className="w-72 h-screen bg-zinc-950" />}>
+          <Sidebar
+            links={links}
+            devPreviewProjects={devPreviewProjects}
+            publicProjects={publicProjects}
+            isCollapsed={isCollapsed}
+            onToggle={toggleSidebar}
+          />
+        </Suspense>
       </div>
-      <main className="flex-1 min-h-0 overflow-auto bg-white dark:bg-black p-8 pt-16 relative min-w-0">
-        {mounted && (
-          <button 
-            onClick={toggleSidebar}
-            className={`fixed top-4 z-50 p-2 rounded-md bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow-sm hover:bg-gray-50 dark:hover:bg-zinc-800 transition-all ${
-              isCollapsed ? 'left-4' : 'left-72 ml-4'
-            }`}
-            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-            aria-label="Toggle Sidebar"
-          >
-            <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-        )}
-        <div className="max-w-4xl mx-auto">
+      <main className="flex-1 min-h-0 overflow-auto bg-white dark:bg-black relative min-w-0">
+        <div className="max-w-4xl mx-auto p-8">
           {children}
         </div>
       </main>
-    </>
+    </div>
   );
 }

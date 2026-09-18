@@ -38,10 +38,14 @@ export function Sidebar({
   links = [],
   devPreviewProjects = [],
   publicProjects = [],
+  isCollapsed = false,
+  onToggle,
 }: {
   links?: SidebarLink[];
   devPreviewProjects?: string[];
   publicProjects?: string[];
+  isCollapsed?: boolean;
+  onToggle?: () => void;
 }) {
   const { user, isAdmin, accessibleProjects, logout } = useAuth();
   const router = useRouter();
@@ -185,6 +189,49 @@ export function Sidebar({
     setCollapsedGroups(prev => ({ ...prev, [group]: prev[group] === undefined ? false : !prev[group] }));
   };
 
+  // DP-17: a collapsed sidebar must not hide sign-in. Instead of vanishing
+  // (the old w-0 overflow-hidden treatment), it renders as a slim, always-
+  // visible top bar: the toggle, current project/env as plain text (no
+  // dropdowns — those imply the full sidebar), and a labelled sign-in
+  // control or the signed-in user, so there's always a way back in without
+  // having to already know an unlabelled hamburger icon does it.
+  if (isCollapsed) {
+    return (
+      <div
+        data-testid="docs-sidebar-collapsed"
+        className="w-full h-14 flex items-center gap-3 px-3 bg-zinc-950 border-b border-white/10 sticky top-0 z-40"
+      >
+        <button
+          onClick={onToggle}
+          aria-label="Expand sidebar"
+          className="p-1.5 rounded hover:bg-white/10 text-gray-300 shrink-0"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+        <span className="text-xs text-gray-400 truncate">
+          {currentProject} · {currentEnv === 'dev' ? 'Dev' : 'Staging'}
+        </span>
+        <div className="ml-auto shrink-0">
+          {user ? (
+            <span className="text-xs text-gray-400 truncate max-w-[160px] inline-block align-middle">
+              {user.email}
+            </span>
+          ) : (
+            <Link
+              href="/login"
+              data-testid="collapsed-login-link"
+              className="text-xs font-medium text-emerald-400 hover:text-emerald-300"
+            >
+              Sign In
+            </Link>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // Build the 3-level tree
   const tree: Record<string, Record<string, SidebarLink[]>> = Object.create(null);
 
@@ -230,6 +277,15 @@ export function Sidebar({
           <h2 data-testid="sidebar-title" className="text-lg font-bold text-gray-100 leading-tight">
             Sanjeev AI <br/><span className="text-emerald-400 font-normal text-sm">Documentation Portal</span>
           </h2>
+          <button
+            onClick={onToggle}
+            aria-label="Collapse sidebar"
+            className="ml-auto p-1.5 rounded hover:bg-white/10 text-gray-400 shrink-0"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            </svg>
+          </button>
         </div>
         <div className="flex gap-2">
             <select
