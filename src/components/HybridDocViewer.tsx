@@ -6,6 +6,7 @@ import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { createMdxComponents } from './MDXComponents';
+import { stripHtmlComments } from '@/lib/markdown';
 import { useAuth } from '@/context/AuthContext';
 
 export function HybridDocViewer({
@@ -125,7 +126,7 @@ export function HybridDocViewer({
                     remarkPlugins={[remarkGfm]}
                     components={components}
                 >
-                    {content}
+                    {stripHtmlComments(content)}
                 </ReactMarkdown>
             </div>
         </article>

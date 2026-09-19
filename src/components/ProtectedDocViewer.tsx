@@ -9,6 +9,7 @@ import { db } from '@/lib/firebase';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { createMdxComponents } from './MDXComponents';
+import { stripHtmlComments } from '@/lib/markdown';
 
 export function ProtectedDocViewer({ project, slug, date, isDraft }: { project: string, slug: string, date?: string, isDraft?: boolean }) {
     const searchParams = useSearchParams();
@@ -103,11 +104,11 @@ export function ProtectedDocViewer({ project, slug, date, isDraft }: { project: 
                 <p className="text-sm text-gray-500 mb-8">{date}</p>
             )}
             <div className="mt-8">
-                <ReactMarkdown 
-                    remarkPlugins={[remarkGfm]} 
+                <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
                     components={components}
                 >
-                    {content || ''}
+                    {stripHtmlComments(content || '')}
                 </ReactMarkdown>
             </div>
         </article>
