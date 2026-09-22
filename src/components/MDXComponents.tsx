@@ -1,6 +1,32 @@
 import React from 'react';
 import Link from 'next/link';
 import { Mermaid } from './Mermaid';
+import { rowMatchesStoryId, storyRowId } from '@/lib/storyLink';
+
+// Flattens a ReactMarkdown children tree to its plain text (bold, links,
+// etc. and all), so the `tr` component below can test cell text against the
+// ?story= id without caring how it was formatted in the source markdown.
+function reactChildrenToText(node: React.ReactNode): string {
+  if (node === null || node === undefined || typeof node === 'boolean') return '';
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(reactChildrenToText).join('');
+  if (React.isValidElement(node)) {
+    const props = node.props as { children?: React.ReactNode };
+    return reactChildrenToText(props.children);
+  }
+  return '';
+}
+
+// The id column is conventionally the row's FIRST cell in these specs (see
+// docs-portal-defects.md, active_locks.md: "| **DP-2** | Story | Rationale |
+// ASP | Dep | Status |"). Matching only that cell — not the whole row —
+// avoids a false match against a "Dep" column or prose elsewhere in the row
+// that merely references another story's id.
+function firstCellText(rowChildren: React.ReactNode): string {
+  const cells = Array.isArray(rowChildren) ? rowChildren : [rowChildren];
+  const firstCell = cells.find((c) => React.isValidElement(c));
+  return firstCell ? reactChildrenToText(firstCell) : reactChildrenToText(rowChildren);
+}
 
 // Resolves a relative markdown link (e.g. "../adr/foo.md") against the
 // directory of the doc that contains it, using the same slug convention
@@ -29,12 +55,22 @@ export function createMdxComponents({
   project,
   slug,
   env,
+  storyId,
 }: {
   project: string;
   slug: string;
   env: string;
+  // DP-2: the ?story=<id> being deep-linked to, if any. Tags the matching
+  // table row with a stable id so the viewer can scroll to it once content
+  // has rendered; see src/lib/storyLink.ts for the matching rule.
+  storyId?: string;
 }) {
   return {
+    tr: (props: any) => {
+      if (!storyId) return <tr {...props} />;
+      if (!rowMatchesStoryId(firstCellText(props.children), storyId)) return <tr {...props} />;
+      return <tr {...props} id={storyRowId(storyId)} />;
+    },
     code: (props: any) => {
       const { className, children } = props;
       const isMermaid = className && className.includes('language-mermaid');

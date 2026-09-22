@@ -10,13 +10,15 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { createMdxComponents } from './MDXComponents';
 import { stripHtmlComments } from '@/lib/markdown';
+import { scrollToAndHighlightStory } from '@/lib/storyLink';
 
 export function ProtectedDocViewer({ project, slug, date, isDraft }: { project: string, slug: string, date?: string, isDraft?: boolean }) {
     const searchParams = useSearchParams();
     const env = searchParams.get('env') || 'staging';
+    const storyId = searchParams.get('story') || undefined;
     const { user, loading: authLoading, isAdmin, accessibleProjects } = useAuth();
-    const components: any = createMdxComponents({ project, slug, env });
-    
+    const components: any = createMdxComponents({ project, slug, env, storyId });
+
     const [content, setContent] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -80,6 +82,17 @@ export function ProtectedDocViewer({ project, slug, date, isDraft }: { project: 
             isMounted = false;
         };
     }, [slug, authLoading, user, isAdmin, accessibleProjects, project, env, isDraft]);
+
+    // DP-2: scroll to and briefly highlight the ?story=<id> row once content
+    // has actually rendered. Gated on `content` truthy, which for a
+    // protected doc only ever becomes true after sign-in and access are
+    // confirmed (see fetchDoc above) — so a signed-out or unauthorized
+    // reader's highlight never fires and never reveals which row matched.
+    // An id with no matching row does nothing: no scroll, no error.
+    useEffect(() => {
+        if (loading || !storyId || !content) return;
+        return scrollToAndHighlightStory(storyId);
+    }, [content, storyId, loading]);
 
     if (loading) {
         return (

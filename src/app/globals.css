@@ -63,3 +63,15 @@ body {
 .prose :where(a):not(:where([class~="not-prose"], [class~="not-prose"] *)):hover {
   color: #34d399; /* Lighter Emerald on hover */
 }
+
+/* DP-2: brief flash on the table row a ?story=<id> deep link points at, so
+   the reader's eye finds it after the scroll lands. Fades to transparent so
+   it never becomes a persistent visual state to track or reset. */
+@keyframes story-row-highlight {
+  0% { background-color: rgba(16, 185, 129, 0.35); }
+  100% { background-color: transparent; }
+}
+
+.story-row-highlight {
+  animation: story-row-highlight 2.4s ease-out;
+}

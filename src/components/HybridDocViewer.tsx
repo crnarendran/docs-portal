@@ -7,6 +7,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { createMdxComponents } from './MDXComponents';
 import { stripHtmlComments } from '@/lib/markdown';
+import { scrollToAndHighlightStory } from '@/lib/storyLink';
 import { useAuth } from '@/context/AuthContext';
 
 export function HybridDocViewer({
@@ -22,8 +23,9 @@ export function HybridDocViewer({
 }) {
     const searchParams = useSearchParams();
     const env = searchParams.get('env') || 'staging';
+    const storyId = searchParams.get('story') || undefined;
     const { user, loading: authLoading, isAdmin, accessibleProjects } = useAuth();
-    const components: any = createMdxComponents({ project, slug, env });
+    const components: any = createMdxComponents({ project, slug, env, storyId });
 
     const [content, setContent] = useState<string>(initialContent);
     const [loading, setLoading] = useState(false);
@@ -89,6 +91,20 @@ export function HybridDocViewer({
 
         return () => { isMounted = false; };
     }, [project, slug, env, initialContent, authLoading, user, isAdmin, accessibleProjects]);
+
+    // DP-2: scroll to and briefly highlight the ?story=<id> row once content
+    // carrying it has actually rendered — gating on `content` (not mount)
+    // means this waits out a still-loading dev fetch rather than scrolling
+    // to a position that then shifts. An id with no matching row does
+    // nothing: no scroll, no error, matching the "say nothing" requirement.
+    useEffect(() => {
+        // `loading` is in the dependency list, not just `content`: a
+        // sessionStorage cache hit can set `content` while the spinner is
+        // still showing (background revalidation), so the row isn't in the
+        // DOM yet on that render — re-check once `loading` flips to false.
+        if (loading || !storyId || !content) return;
+        return scrollToAndHighlightStory(storyId);
+    }, [content, storyId, loading]);
 
     if (loading) {
         return (
