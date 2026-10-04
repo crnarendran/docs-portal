@@ -24,8 +24,11 @@ Mirrors `sanjeev-ai`'s promotion flow for consistency across repos:
   `docs-portal-prod`. This is the repo's default/production branch (named
   `main`, not `prod`, matching `sanjeev-ai`'s own convention).
 
-Promote by merging/pushing `dev` → `staging` → `main`, same as the other
-repos in this ecosystem.
+Promote `dev` → `staging` by a plain (fast-forward) push. `staging` →
+`main` is a **pull request the user merges**: no agent pushes `main`.
+GitHub rulesets enforce this with no bypass (2026-10-04): `main` requires a
+PR (0 approvals), and all three branches block force-push and deletion.
+Same process as `sanjeev-ai` (its AGENTS.md §9).
 
 ## About this Next.js app
 
