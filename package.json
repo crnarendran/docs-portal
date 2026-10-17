@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:leak-guard": "node --test scripts/check-protected-leak.test.mjs",
+    "test:deploy-check": "node --test scripts/staging-deploy-check.test.mjs scripts/deploy-staging-workflow.test.mjs",
     "docs:sync:staging": "ts-node scripts/syncDocs.ts --env=staging",
     "docs:sync:dev": "ts-node scripts/syncDocs.ts --env=dev"
   },
