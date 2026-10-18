@@ -68,3 +68,13 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## End-to-end tests (Playwright + Firebase emulators)
+
+```bash
+npm run test:e2e
+```
+
+Starts the Auth, Firestore and Functions emulators (project `demo-docs-portal`, config in `firebase.json`), seeds the fixtures in `tests/support/seed.ts` (a staging-only doc, a dev-only doc, a doc in both, and a login-gated doc in `swarmkit` and `keystar`), starts `next dev` on port 3001, and runs the suite on Chromium. `E2E_ALL_BROWSERS=1` adds Firefox and WebKit, which are not yet reliable.
+
+Needs the Firebase CLI and a JDK on PATH. On a Windows host where the emulator fails with "Unable to establish loopback connection", set `JAVA_TOOL_OPTIONS` to the line that swarm-ops `emu-doctor.mjs` prints. After a killed run, stop any leftover emulator or `next dev` process and delete `.next` before retrying (a stale `.next` makes every route 404).

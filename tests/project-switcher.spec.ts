@@ -2,14 +2,12 @@ import { test, expect } from '@playwright/test';
 import { getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth, UserRecord } from 'firebase-admin/auth';
+import { EMULATOR_PROJECT, useEmulatorsForAdminSdk } from './support/emulator';
 
 // Initialize firebase admin for emulator if not already
 if (!getApps().length) {
-  process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
-  process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:9099';
-  initializeApp({
-    projectId: 'sanjeev-ai',
-  });
+  useEmulatorsForAdminSdk();
+  initializeApp({ projectId: EMULATOR_PROJECT });
 }
 
 const db = getFirestore();
@@ -52,6 +50,7 @@ test.describe('Adversarial QA - Project Switcher', () => {
 
   async function login(page, email, password) {
     await page.goto('/login');
+    await page.waitForLoadState('networkidle'); // hydrate before submitting
     await expect(page.getByTestId('login-email')).toBeEditable({ timeout: 5000 });
     await page.getByTestId('login-email').fill(email);
     await page.getByTestId('login-password').fill(password);

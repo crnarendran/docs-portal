@@ -2,14 +2,12 @@ import { test, expect } from '@playwright/test';
 import { getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth, UserRecord } from 'firebase-admin/auth';
+import { EMULATOR_PROJECT, useEmulatorsForAdminSdk } from './support/emulator';
 
 // Initialize firebase admin for emulator if not already
 if (!getApps().length) {
-  process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
-  process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:9099';
-  initializeApp({
-    projectId: 'sanjeev-ai', // Strict requirement from skills
-  });
+  useEmulatorsForAdminSdk();
+  initializeApp({ projectId: EMULATOR_PROJECT });
 }
 
 const db = getFirestore();
@@ -111,6 +109,8 @@ test.describe('RBAC and Admin Screen E2E', () => {
 
   async function login(page, email, password) {
     await page.goto('/login');
+    // Submitting before hydration is a native GET to /login? that drops the form.
+    await page.waitForLoadState('networkidle');
 
     // Wait for React hydration to attach onChange listeners
     await expect(page.getByTestId('login-email')).toBeEditable({ timeout: 5000 });
@@ -127,12 +127,15 @@ test.describe('RBAC and Admin Screen E2E', () => {
   test('Access Denied (Unauthorized) - Standard user cannot view unauthorized project', async ({ page }) => {
     await login(page, 'standard1@example.com', 'password123');
 
-    // standard1 has no swarmkit access; the gated test doc requiresLogin,
-    // which routes through ProtectedDocViewer and checks accessibleProjects.
+    // standard1 has no swarmkit access. AuthGuard (not the viewer) enforces
+    // that for a protected doc: a signed-in user without project access is
+    // redirected to /unauthorized before the viewer ever renders, so the
+    // viewer's own unauthorized-message is not reachable from here.
     await page.goto('/swarmkit/test-gated-doc');
 
-    // Assertion: Should show Unauthorized or redirect
-    await expect(page.getByTestId('unauthorized-message')).toBeAttached({ timeout: 5000 });
+    await expect(page).toHaveURL(/\/unauthorized$/, { timeout: 10000 });
+    await expect(page.getByRole('heading', { name: '403 Unauthorized' })).toBeVisible();
+    await expect(page.getByText('GATED-SWARMKIT-BODY')).toHaveCount(0);
   });
 
   test('Project Dropdown Filtering - Only displays authorized projects', async ({ page }) => {

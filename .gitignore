@@ -50,3 +50,6 @@ node_modules/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# Firebase emulator logs (npm run test:e2e)
+*-debug.log
