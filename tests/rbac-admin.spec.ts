@@ -204,6 +204,7 @@ test.describe('RBAC and Admin Screen E2E', () => {
   });
 
   test('Admin Promotion - Toggling grants a standard user admin access', async ({ page }) => {
+    test.setTimeout(90000);
     // Authenticate as the existing admin
     await login(page, 'admin@example.com', 'password123');
 
@@ -216,8 +217,9 @@ test.describe('RBAC and Admin Screen E2E', () => {
 
     await toggleBtn.click({ force: true });
 
-    // Wait for the callable + refetch to resolve and flip the button's own label
-    await expect(toggleBtn).toContainText('Yes', { timeout: 10000 });
+    // Wait for the callable + refetch to resolve and flip the button's own
+    // label. The first call into a cold Functions emulator can take > 10 s.
+    await expect(toggleBtn).toContainText('Yes', { timeout: 45000 });
 
     await page.getByTestId('logout-btn').click({ force: true });
     await page.goto('/login');
