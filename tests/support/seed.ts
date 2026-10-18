@@ -31,6 +31,35 @@ function fixtureDoc(slug: string, title: string, content: string) {
   };
 }
 
+// DP-21 fixture: a spec-style doc with a story table (40 rows, so a late row is
+// below the fold), a table of non-story rows, and a row whose first cell lists
+// several ids (not a single story id, so it gets no link button).
+export const STORIES = {
+  slug: 'fixtures/stories',
+  count: 40,
+  late: 'FX-30',
+};
+
+function storiesContent() {
+  const rows = Array.from({ length: STORIES.count }, (_, i) => `| **FX-${i + 1}** | Story number ${i + 1} |`);
+  return [
+    '# Stories',
+    '',
+    '| ID | Story |',
+    '|---|---|',
+    ...rows,
+    '',
+    '| Name | Value |',
+    '|---|---|',
+    '| alpha | one |',
+    '| beta | two |',
+    '',
+    '| ID | Story |',
+    '|---|---|',
+    '| FX-91, FX-92 | A row that covers two stories |',
+  ].join('\n');
+}
+
 // Login-gated docs (no `public: true`) in the other two projects. The RBAC and
 // project-switcher specs grant and revoke access to these projects, and the
 // project dropdowns are built from the projects that have docs.
@@ -51,6 +80,7 @@ export async function seedDocs() {
   );
   await Promise.all([
     ...gated,
+    db.collection('portal_docs').doc(docId(STORIES.slug)).set(fixtureDoc(STORIES.slug, 'Fixture Stories', storiesContent())),
     db.collection('portal_docs').doc(docId(f.stagingOnly.slug)).set(fixtureDoc(f.stagingOnly.slug, f.stagingOnly.title, f.stagingOnly.body)),
     db.collection('portal_docs_dev').doc(docId(f.devOnly.slug)).set(fixtureDoc(f.devOnly.slug, f.devOnly.title, f.devOnly.body)),
     db.collection('portal_docs').doc(docId(f.both.slug)).set(fixtureDoc(f.both.slug, f.both.title, f.both.stagingBody)),
