@@ -55,3 +55,20 @@ export function scrollToAndHighlightStory(storyId: string): () => void {
     clearTimeout(unhighlight);
   };
 }
+
+// DP-21: a row is a "story row" when its first cell is exactly ONE story id
+// (e.g. "DP-2", "PQ-21"). A cell listing several ("TE-5, TE-6") is not one
+// story and gets no link button; it can still be deep-linked to via ?story=.
+const SINGLE_STORY_ID = /^[A-Z][A-Z0-9]*-\d+[a-z]?$/;
+
+export function singleStoryId(firstCellText: string): string | null {
+  const t = firstCellText.trim();
+  return SINGLE_STORY_ID.test(t) ? t : null;
+}
+
+// The canonical shareable URL for a story row: the page, the env being
+// viewed, and the story. Built from the current location so it works on any
+// host (localhost, staging, prod).
+export function canonicalStoryUrl(origin: string, pathname: string, env: string, storyId: string): string {
+  return `${origin}${pathname}?env=${encodeURIComponent(env)}&story=${encodeURIComponent(storyId)}`;
+}

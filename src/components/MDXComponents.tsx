@@ -1,7 +1,8 @@
 import React from 'react';
 import Link from 'next/link';
 import { Mermaid } from './Mermaid';
-import { rowMatchesStoryId, storyRowId } from '@/lib/storyLink';
+import { rowMatchesStoryId, singleStoryId, storyRowId } from '@/lib/storyLink';
+import { StoryLinkButton } from './StoryLinkButton';
 
 // Flattens a ReactMarkdown children tree to its plain text (bold, links,
 // etc. and all), so the `tr` component below can test cell text against the
@@ -66,10 +67,36 @@ export function createMdxComponents({
   storyId?: string;
 }) {
   return {
+    // DP-21: a row whose first cell is a single story id always gets
+    // id="story-<ID>" and a copy-link button after the id. A row that merely
+    // lists the ?story= id among several (DP-2) still gets the id, no button.
     tr: (props: any) => {
-      if (!storyId) return <tr {...props} />;
-      if (!rowMatchesStoryId(firstCellText(props.children), storyId)) return <tr {...props} />;
-      return <tr {...props} id={storyRowId(storyId)} />;
+      const cells = React.Children.toArray(props.children);
+      const first = cells[0];
+      const ownId =
+        React.isValidElement(first) && first.type === 'td'
+          ? singleStoryId(reactChildrenToText(first))
+          : null;
+      const matchesParam = !!storyId && rowMatchesStoryId(firstCellText(props.children), storyId);
+
+      if (!ownId) {
+        return matchesParam ? <tr {...props} id={storyRowId(storyId!)} /> : <tr {...props} />;
+      }
+
+      const firstWithButton = React.cloneElement(
+        first as React.ReactElement<{ children?: React.ReactNode }>,
+        undefined,
+        <>
+          {(first as React.ReactElement<{ children?: React.ReactNode }>).props.children}
+          <StoryLinkButton storyId={ownId} env={env} />
+        </>
+      );
+      return (
+        <tr {...props} id={storyRowId(ownId)}>
+          {firstWithButton}
+          {cells.slice(1)}
+        </tr>
+      );
     },
     code: (props: any) => {
       const { className, children } = props;
