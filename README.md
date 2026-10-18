@@ -77,4 +77,6 @@ npm run test:e2e
 
 Starts the Auth, Firestore and Functions emulators (project `demo-docs-portal`, config in `firebase.json`), seeds the fixtures in `tests/support/seed.ts` (a staging-only doc, a dev-only doc, a doc in both, and a login-gated doc in `swarmkit` and `keystar`), starts `next dev` on port 3001, and runs the suite on Chromium. `E2E_ALL_BROWSERS=1` adds Firefox and WebKit, which are not yet reliable.
 
+On a fresh clone run `npm ci` in the repo root and in `functions/` first. `npm run test:e2e` then builds the functions itself (`pretest:e2e`), because the Functions emulator loads `functions/lib/`, which does not exist until they are built. Run from a short path such as `C:\Naren\...`: under a long one Next/Turbopack hits Windows' path-length limit and pages fail to render.
+
 Needs the Firebase CLI and a JDK on PATH. On a Windows host where the emulator fails with "Unable to establish loopback connection", set `JAVA_TOOL_OPTIONS` to the line that swarm-ops `emu-doctor.mjs` prints. After a killed run, stop any leftover emulator or `next dev` process and delete `.next` before retrying (a stale `.next` makes every route 404).
