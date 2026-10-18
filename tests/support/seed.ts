@@ -60,6 +60,15 @@ function storiesContent() {
   ].join('\n');
 }
 
+// DP-20 fixture: a login-gated, dev-only doc with a story table long enough
+// that a late row is below the fold, so "lands with the row in view" is a real
+// assertion. Not public: it is only readable after sign-in.
+export const GATED_STORIES = {
+  slug: 'fixtures/gated-stories',
+  count: 40,
+  late: 'GS-30',
+};
+
 // Login-gated docs (no `public: true`) in the other two projects. The RBAC and
 // project-switcher specs grant and revoke access to these projects, and the
 // project dropdowns are built from the projects that have docs.
@@ -80,6 +89,18 @@ export async function seedDocs() {
   );
   await Promise.all([
     ...gated,
+    db.collection('portal_docs_dev').doc(docId(GATED_STORIES.slug)).set({
+      slug: GATED_STORIES.slug,
+      project: FIXTURE.project,
+      meta: { title: 'Fixture Gated Stories', section: 'Fixtures', category: 'DP-20', requiresLogin: true },
+      content: [
+        '# Gated stories',
+        '',
+        '| ID | Story |',
+        '|---|---|',
+        ...Array.from({ length: GATED_STORIES.count }, (_, i) => `| **GS-${i + 1}** | Gated story number ${i + 1} |`),
+      ].join('\n'),
+    }),
     db.collection('portal_docs').doc(docId(STORIES.slug)).set(fixtureDoc(STORIES.slug, 'Fixture Stories', storiesContent())),
     db.collection('portal_docs').doc(docId(f.stagingOnly.slug)).set(fixtureDoc(f.stagingOnly.slug, f.stagingOnly.title, f.stagingOnly.body)),
     db.collection('portal_docs_dev').doc(docId(f.devOnly.slug)).set(fixtureDoc(f.devOnly.slug, f.devOnly.title, f.devOnly.body)),

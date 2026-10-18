@@ -5,8 +5,10 @@
 // exceed the 10 s default and the whole run aborts before a test starts.
 import { spawnSync } from 'node:child_process';
 
+// Extra args (e.g. a spec file) go to Playwright; they must not contain spaces.
+const extra = process.argv.slice(2).join(' ');
 const result = spawnSync(
-  'firebase emulators:exec --project demo-docs-portal --only auth,firestore,functions "playwright test"',
+  `firebase emulators:exec --project demo-docs-portal --only auth,firestore,functions "playwright test ${extra}"`,
   {
     stdio: 'inherit',
     shell: true,
