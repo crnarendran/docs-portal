@@ -232,6 +232,7 @@ test.describe('RBAC and Admin Screen E2E', () => {
   });
 
   test('Invite by Email - Pre-granted access applies on first sign-in', async ({ page }) => {
+    test.setTimeout(180000);
     const inviteEmail = 'invited-user@example.com';
 
     // Clean up a leftover invite/user from a previous run, if any.
@@ -263,6 +264,19 @@ test.describe('RBAC and Admin Screen E2E', () => {
       password: 'password123',
     });
 
+    // Wait for the BACKEND result before looking at the UI. The auth trigger
+    // runs asynchronously in the Functions emulator and can take far longer
+    // than the UI's 10 s window on a cold or slow machine (a Linux run saw the
+    // selector without 'keystar'). Polling the document separates "the
+    // function was late or did not apply the invite" from "the UI did not
+    // pick the grant up", which late-grant.spec.ts covers on its own.
+    await expect
+      .poll(async () => (await db.collection('portal_users').doc(invitedUser.uid).get()).data()?.accessibleProjects, {
+        timeout: 90000,
+        message: 'createPortalUserDocument should write the invite\'s projects to portal_users',
+      })
+      .toEqual(['keystar']);
+
     await page.getByTestId('logout-btn').click({ force: true });
     await page.goto('/login');
     await expect(page.getByTestId('login-email')).toBeVisible({ timeout: 5000 });
@@ -274,8 +288,12 @@ test.describe('RBAC and Admin Screen E2E', () => {
     await expect(projectSelector).toContainText('keystar', { timeout: 10000 });
 
     // The invite should be consumed (deleted) once applied.
-    const remainingInvite = await db.collection('portal_invites').doc(inviteEmail).get();
-    expect(remainingInvite.exists).toBe(false);
+    await expect
+      .poll(async () => (await db.collection('portal_invites').doc(inviteEmail).get()).exists, {
+        timeout: 30000,
+        message: 'the invite should be deleted once applied',
+      })
+      .toBe(false);
 
     await db.collection('portal_users').doc(invitedUser.uid).delete().catch(() => {});
   });
