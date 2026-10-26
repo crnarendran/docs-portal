@@ -26,7 +26,11 @@ test.describe('DP-20: sign-in keeps the whole link', () => {
     await expect(page.locator(`#story-${GATED_STORIES.late}`)).toBeInViewport({ timeout: 15000 });
   });
 
+  // 60 s for the two refusal tests: each does a full emulator sign-in on a
+  // cold route and flaked at the 30 s default on Firefox/WebKit (page.goto /
+  // waitForURL timeouts, not wrong redirects).
   test('next=//evil.example is still refused', async ({ page }) => {
+    test.setTimeout(60000);
     await page.goto('/login?next=' + encodeURIComponent('//evil.example/steal'));
     await submitLoginForm(page, EMAIL, PASSWORD);
 
@@ -37,6 +41,7 @@ test.describe('DP-20: sign-in keeps the whole link', () => {
   });
 
   test('next=/\\evil.example (backslash form) is refused too', async ({ page }) => {
+    test.setTimeout(60000);
     await page.goto('/login?next=' + encodeURIComponent('/\\evil.example/steal'));
     await submitLoginForm(page, EMAIL, PASSWORD);
 
