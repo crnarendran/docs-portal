@@ -1,11 +1,12 @@
-<!-- BEGIN GENERATED: swarm-protocol-gemini from swarm-ops GEMINI.md @ 7feeb391. Do not edit here: change swarm-ops GEMINI.md and run its scripts/sync-agents-protocol.mjs (§17). -->
+<!-- BEGIN GENERATED: swarm-protocol-gemini from swarm-ops GEMINI.md @ a8bb6182. Do not edit here: change swarm-ops GEMINI.md and run its scripts/sync-agents-protocol.mjs (§17). -->
 
 ## 0. About this file
 
 Antigravity loads only about the first 24,000 bytes of a rules file, so the
-full swarm protocol (swarm-ops `AGENTS.md`, 77 KB) never reaches you past §9
+full swarm protocol (swarm-ops `AGENTS.md`, 64 KB) never reaches you past §9
 or §10. This file is the operative part of §9 and §11-§19 in under 20,000
-bytes: the rules and commands, not the history behind them. Section numbers
+bytes: the rules and commands, not the history behind them (that is in
+swarm-ops `docs/adr/2026-10-26-swarm-protocol-history.md`). Section numbers
 match the full text. **When a rule here is unclear, or a situation is not
 covered, read the full section:** swarm-ops `AGENTS.md`, or the generated
 block at the end of sanjeev-ai `.agents/AGENTS.md`. Source: swarm-ops
@@ -18,6 +19,8 @@ block at the end of sanjeev-ai `.agents/AGENTS.md`. Source: swarm-ops
   then work in the path it prints. `<repo-path>` is the repo's main checkout
   (`C:\Naren\SanjeevAI\SanjeevAIApp\sanjeev-ai`, `C:\Naren\SwarmOps`). Never
   run tools in a main checkout itself.
+- **Never `git checkout dev`:** another session's worktree may hold it. Work
+  on your own branch and push with `git push origin HEAD:dev`.
 - **Push flow:** `git fetch origin && git rebase origin/dev && git push origin HEAD:dev`.
   A rejected push means someone pushed first: fetch, rebase, push again.
 - **Never force-push** any of `dev`, `staging`, `main`. Never `--no-verify`.
@@ -63,8 +66,9 @@ node scripts/locks.mjs claim "<feature>" --session "<UI title>#<session id>" --h
 - The claim is a Firestore transaction: **REFUSED (exit 1) means do not
   start.** It refuses if Firestore is unreachable. An area-overlap warning is
   a judgement call, not a block.
-- `--session` is your UI title plus your real session id (Antigravity: the
-  thread name and `ANTIGRAVITY_CONVERSATION_ID`). Never a per-feature slug.
+- `--session` is your UI title plus your **full** session id (Antigravity: the
+  thread name and `ANTIGRAVITY_CONVERSATION_ID`); `claim` refuses a
+  truncated id. Never a per-feature slug.
   Use the same `--session` for all your locks.
 - **Heartbeat** on each significant commit:
   `node scripts/locks.mjs heartbeat "<feature>" --session "..."`.
