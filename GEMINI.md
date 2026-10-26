@@ -1,4 +1,4 @@
-<!-- BEGIN GENERATED: swarm-protocol-gemini from swarm-ops GEMINI.md @ a8bb6182. Do not edit here: change swarm-ops GEMINI.md and run its scripts/sync-agents-protocol.mjs (§17). -->
+<!-- BEGIN GENERATED: swarm-protocol-gemini from swarm-ops GEMINI.md @ 7d7be85e. Do not edit here: change swarm-ops GEMINI.md and run its scripts/sync-agents-protocol.mjs (§17). -->
 
 ## 0. About this file
 
@@ -222,7 +222,10 @@ chat. A fallback carries the report, never the tool's job.
 ## 19. Pull work at startup
 
 Only for sessions taking part in the pull rollout (the canary named in RT-5,
-then those the user allows); everyone else waits for dispatches.
+then those the user allows); everyone else waits for dispatches. Before you
+pull, the user must have approved `claim_next`, `renew_lease`,
+`release_lease` and `flag_regression` for you (RT-11): Antigravity asks the
+first time you call each one, so do that first call while the user is there.
 
 1. Your own worktree (§9), `register` (§14), arm your watcher.
 2. `inbox` first: a direct dispatch or `action-required` message wins over

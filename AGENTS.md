@@ -4,7 +4,7 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
-<!-- BEGIN GENERATED: swarm-protocol from swarm-ops AGENTS.md @ a8bb6182. Do not edit here: change swarm-ops AGENTS.md and run its scripts/sync-agents-protocol.mjs (§17). -->
+<!-- BEGIN GENERATED: swarm-protocol from swarm-ops AGENTS.md @ 7d7be85e. Do not edit here: change swarm-ops AGENTS.md and run its scripts/sync-agents-protocol.mjs (§17). -->
 
 ## 5. Swarm Architecture (Multi-Agent Roles)
 
@@ -1051,6 +1051,20 @@ RT-11 (the user pre-allows the pull tools for each session) and after each
 such session's client restarts on the current server. Until then only the
 canary named in RT-5's spec row pulls; every other session keeps the
 dispatch flow in §13-§14 and ignores this section.
+
+**Before a session is told to pull (RT-11), the user, not an agent, allows
+the pull tools for it.** Otherwise its first `claim_next` waits on a
+permission prompt, which looks exactly like an idle session.
+- **Claude Code:** once per machine, in the user's `~/.claude/settings.json`
+  under `permissions.allow`: `mcp__agent-mailbox__claim_next`,
+  `mcp__agent-mailbox__renew_lease`, `mcp__agent-mailbox__release_lease`,
+  `mcp__agent-mailbox__flag_regression`. That covers every Claude Code session
+  on that machine.
+- **Antigravity:** asks per new MCP tool, so the user approves each of the
+  four the first time that session calls it, while watching.
+- **The orchestrator** keeps the list of sessions cleared to pull in its
+  handoff, and tells a session to pull only once it is on that list. Agents
+  never change tool permissions themselves.
 
 **Startup, for a pulling session:**
 1. Your own worktree (§9), `register` (§14.1), arm your watcher (§14.3).
