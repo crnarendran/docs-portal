@@ -4,6 +4,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { EMULATOR_PROJECT, useEmulatorsForAdminSdk } from './support/emulator';
 import { FIXTURE } from './support/seed';
+import { signIn } from './support/auth';
 
 // DP-7 behaviours, against the seeded fixture (tests/support/seed.ts):
 // a route that exists only in portal_docs_dev is generated, is marked as an
@@ -56,13 +57,7 @@ test.describe('DP-7: dev-preview routes', () => {
       accessibleProjects: [FIXTURE.project],
     });
 
-    await page.goto('/login');
-    await page.waitForLoadState('networkidle'); // hydrate before submitting
-    await expect(page.getByTestId('login-email')).toBeEditable({ timeout: 10000 });
-    await page.getByTestId('login-email').fill(email);
-    await page.getByTestId('login-password').fill('password123');
-    await page.getByTestId('login-submit').click({ force: true });
-    await expect(page.getByTestId('logout-btn')).toBeVisible({ timeout: 15000 });
+    await signIn(page, email, 'password123');
 
     await page.goto(`${route(FIXTURE.both.slug)}?env=dev`);
     await expect(page.getByText(FIXTURE.both.devBody)).toBeVisible({ timeout: 15000 });

@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+import { signIn } from './support/auth';
 import { getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth, UserRecord } from 'firebase-admin/auth';
@@ -48,14 +49,8 @@ test.describe('Adversarial QA - Project Switcher', () => {
     await new Promise(r => setTimeout(r, 2000));
   });
 
-  async function login(page, email, password) {
-    await page.goto('/login');
-    await page.waitForLoadState('networkidle'); // hydrate before submitting
-    await expect(page.getByTestId('login-email')).toBeEditable({ timeout: 5000 });
-    await page.getByTestId('login-email').fill(email);
-    await page.getByTestId('login-password').fill(password);
-    await page.getByTestId('login-submit').click({ force: true });
-    await expect(page.getByTestId('logout-btn')).toBeVisible({ timeout: 10000 });
+  async function login(page: Page, email: string, password: string) {
+    await signIn(page, email, password);
   }
 
   test('should update global state or navigation when project is switched', async ({ page }) => {

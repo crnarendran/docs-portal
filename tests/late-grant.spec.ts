@@ -3,7 +3,7 @@ import { getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { EMULATOR_PROJECT, useEmulatorsForAdminSdk } from './support/emulator';
-import { submitLoginForm } from './support/auth';
+import { signIn } from './support/auth';
 
 // A project grant that reaches the user's portal_users doc AFTER they are
 // already signed in and looking at the page (a slow createPortalUserDocument,
@@ -33,9 +33,7 @@ test('a grant that arrives after sign-in appears in the project selector without
     .toBe(true);
   await db.collection('portal_users').doc(uid).update({ accessibleProjects: [] });
 
-  await page.goto('/login');
-  await submitLoginForm(page, email, 'password123');
-  await expect(page.getByTestId('logout-btn')).toBeVisible({ timeout: 30000 });
+  await signIn(page, email, 'password123');
   await page.goto('/');
   const selector = page.getByTestId('project-selector');
   await expect(selector).toBeVisible();

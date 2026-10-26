@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+import { signIn } from './support/auth';
 import { getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth, UserRecord } from 'firebase-admin/auth';
@@ -107,21 +108,10 @@ test.describe('RBAC and Admin Screen E2E', () => {
     await new Promise(r => setTimeout(r, 3000));
   });
 
-  async function login(page, email, password) {
-    await page.goto('/login');
-    // Submitting before hydration is a native GET to /login? that drops the form.
-    await page.waitForLoadState('networkidle');
-
-    // Wait for React hydration to attach onChange listeners
-    await expect(page.getByTestId('login-email')).toBeEditable({ timeout: 5000 });
-
-    // Using Option B: Expect test-only email/password fields to be rendered when NEXT_PUBLIC_USE_EMULATORS='true'
-    await page.getByTestId('login-email').fill(email);
-    await page.getByTestId('login-password').fill(password);
-    await page.getByTestId('login-submit').click({ force: true });
-
-    // Wait for the auth context to update and render the sidebar's logged-in view
-    await expect(page.getByTestId('logout-btn')).toBeVisible({ timeout: 10000 });
+  // The emulator-only email/password form (NEXT_PUBLIC_USE_EMULATORS='true'),
+  // via the shared helper that waits for hydration and for the redirect.
+  async function login(page: Page, email: string, password: string) {
+    await signIn(page, email, password);
   }
 
   test('Access Denied (Unauthorized) - Standard user cannot view unauthorized project', async ({ page }) => {
