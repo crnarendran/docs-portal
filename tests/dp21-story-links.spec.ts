@@ -28,19 +28,56 @@ test.describe('DP-21: story row links', () => {
     await expect(page.locator('tr', { hasText: 'FX-91, FX-92' }).getByTestId('story-link-btn')).toHaveCount(0);
   });
 
-  test('clicking the button copies the canonical URL and says "Link copied"', async ({ page, context }) => {
-    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  test('clicking the button copies the canonical URL and says "Link copied"', async ({ page, context, browserName }) => {
+    let readCopied: () => Promise<string>;
+    if (browserName === 'chromium') {
+      await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+      readCopied = () => page.evaluate(() => navigator.clipboard.readText());
+    } else {
+      // Firefox and WebKit reject the clipboard-read/write permission names
+      // outright, so the real clipboard cannot be read back there. Record what
+      // the app asks the Clipboard API to write instead.
+      await page.addInitScript(() => {
+        const copied: string[] = [];
+        (window as unknown as { __copied: string[] }).__copied = copied;
+        Object.defineProperty(navigator, 'clipboard', {
+          configurable: true,
+          value: { writeText: async (text: string) => void copied.push(text) },
+        });
+      });
+      readCopied = () =>
+        page.evaluate(() => (window as unknown as { __copied: string[] }).__copied.at(-1) ?? '');
+    }
+    test.setTimeout(60000); // first render of the 40-row table is slow on a cold Firefox/WebKit
     await page.goto(path);
     const btn = page.locator(`#story-${STORIES.late}`).getByTestId('story-link-btn');
-    await btn.scrollIntoViewIfNeeded();
-    await btn.click();
+    await expect(btn).toBeVisible({ timeout: 40000 });
+    await btn.click(); // scrolls into view and retries if the row re-renders
 
     await expect(page.getByText('Link copied')).toBeVisible();
-    const copied = await page.evaluate(() => navigator.clipboard.readText());
+    const copied = await readCopied();
     expect(copied).toBe(`http://localhost:3001${path}?env=staging&story=${STORIES.late}`);
 
     // The confirmation goes away by itself.
     await expect(page.getByText('Link copied')).toHaveCount(0, { timeout: 5000 });
+  });
+
+  test('a re-render of the viewer keeps the same row nodes (the "Link copied" state survives)', async ({ page }) => {
+    await page.goto(path);
+    const row = page.locator('#story-FX-1');
+    await expect(row).toBeVisible({ timeout: 30000 });
+    await row.evaluate((el) => ((el as unknown as { __mark: string }).__mark = 'same-node'));
+
+    // Changing an unrelated query param re-renders the viewer (it reads
+    // useSearchParams) without changing anything it renders from. If the
+    // markdown component map is rebuilt on every render, React sees a new
+    // component type and replaces every row, losing the button's state.
+    await page.evaluate(() => window.history.pushState(null, '', `${location.pathname}?env=staging&unrelated=1`));
+    await expect.poll(() => page.evaluate(() => location.search)).toContain('unrelated=1');
+    await page.waitForTimeout(500);
+
+    const mark = await page.locator('#story-FX-1').evaluate((el) => (el as unknown as { __mark?: string }).__mark);
+    expect(mark).toBe('same-node');
   });
 
   test('the copied URL round-trips to the same row, in view', async ({ page }) => {
