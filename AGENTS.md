@@ -4,7 +4,7 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
-<!-- BEGIN GENERATED: swarm-protocol from swarm-ops AGENTS.md @ 7d7be85e. Do not edit here: change swarm-ops AGENTS.md and run its scripts/sync-agents-protocol.mjs (§17). -->
+<!-- BEGIN GENERATED: swarm-protocol from swarm-ops AGENTS.md @ 199ea177. Do not edit here: change swarm-ops AGENTS.md and run its scripts/sync-agents-protocol.mjs (§17). -->
 
 ## 5. Swarm Architecture (Multi-Agent Roles)
 
@@ -742,6 +742,33 @@ only exist after the runtime rollout, so if one is missing, fall back to the
 Anything that changes state for someone else, sets priority, resolves a
 conflict or touches §11 still needs a turn. Full table and limits:
 swarm-ops `docs/planning/backlog/token-efficiency.md`, TE-8.
+
+### 14.9 When you hit a usage limit (QW-6)
+
+**A wake does not mean you can act.** If your turn starts and the provider says your quota
+or limit is spent:
+
+1. **Stop.** Never enable overage, AI credits or any pay-as-you-go pool, and never retry
+   into one (§11, *Paid Overage*). Waiting for the reset is the default; spending is the
+   user's decision.
+2. **Leave your watcher alone.** The swarm-ops watcher (`scripts/watcher.js`) holds the
+   wake while your agent record carries a future `unavailableUntil` (QW-3): it keeps
+   polling until the reset instead of exiting, so it is still there to wake you
+   afterwards. If it must exit anyway, it writes a marker so `roster` shows you as
+   unwatched (QW-4). sanjeev-ai's `.agents/scripts/mailbox-watch.mjs` does neither yet,
+   so a sanjeev-ai session re-arms its watcher after the reset.
+3. **You need not announce it.** A model-free process publishes `unavailableUntil` onto
+   your agent record from the provider's own log line (`unavailableSource: "log"`), or an
+   inferred value labelled `"inferred"` (QW-14). `roster` shows it, and `send` tells
+   senders their message "will not be read before then" (QW-5). If you still have a turn,
+   one line to your orchestrator with the reset time is enough: don't spend the last of
+   your quota on a report.
+4. **After the reset:** `inbox`, ack, then resume where you stopped.
+
+**Answering "check mail" while paused.** §14.4 still applies (the address and session id,
+the watcher's state, the unread count). Add that you are paused until `<time>`, from your
+`unavailableUntil` in `roster`, so nothing will be acted on before then. If you cannot take
+the turn at all, the user reads the same facts from `roster` or Mission Control `#/health`.
 
 ## 15. Priority and Scheduling (PQ-6)
 

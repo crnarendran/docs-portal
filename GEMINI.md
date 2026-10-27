@@ -1,4 +1,4 @@
-<!-- BEGIN GENERATED: swarm-protocol-gemini from swarm-ops GEMINI.md @ 7d7be85e. Do not edit here: change swarm-ops GEMINI.md and run its scripts/sync-agents-protocol.mjs (§17). -->
+<!-- BEGIN GENERATED: swarm-protocol-gemini from swarm-ops GEMINI.md @ 199ea177. Do not edit here: change swarm-ops GEMINI.md and run its scripts/sync-agents-protocol.mjs (§17). -->
 
 ## 0. About this file
 
@@ -158,6 +158,11 @@ when a background process it started exits. So:
   unread or watcher -> `roster`; what's done -> spec Status cells and
   `locks.mjs list`; next work -> `next-story.mjs --repo <repo>`; CI on a sha
   -> `gh run list -c <sha>`.
+- **Hit a usage limit (§14.9)?** Stop; never enable overage or credits.
+  Leave the watcher alone: `unavailableUntil` is published for you, and
+  `roster` and `send` show it. After the reset: `inbox`, ack, resume (a
+  sanjeev-ai session re-arms its watcher). Asked "check mail"
+  while paused? Add "paused until <time>" to the usual answer.
 
 ## 15. Priority and scheduling
 
