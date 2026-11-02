@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { getAuth } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
@@ -17,7 +17,13 @@ export function ProtectedDocViewer({ project, slug, date, isDraft }: { project: 
     const env = searchParams.get('env') || 'staging';
     const storyId = searchParams.get('story') || undefined;
     const { user, loading: authLoading, isAdmin, accessibleProjects } = useAuth();
-    const components: any = createMdxComponents({ project, slug, env, storyId });
+    // Memoised: a new component map on every render gives ReactMarkdown new
+    // component types, so React replaces every table row (losing the story
+    // link button's state) on any re-render of the viewer.
+    const components: any = useMemo(
+        () => createMdxComponents({ project, slug, env, storyId }),
+        [project, slug, env, storyId]
+    );
 
     const [content, setContent] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);

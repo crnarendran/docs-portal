@@ -21,7 +21,8 @@ function LoginContent() {
       // (login + project-level access), not gated here.
       let redirectPath = '/';
       // Guard against open redirect: ensure it's a relative path starting with '/' and not '//' (protocol-relative)
-      if (nextParam && nextParam.startsWith('/') && !nextParam.startsWith('//')) {
+      // or '/\\' (browsers treat a backslash as a slash). DP-20: the value now carries the query and hash too.
+      if (nextParam && nextParam.startsWith('/') && !nextParam.startsWith('//') && !nextParam.startsWith('/\\')) {
         redirectPath = nextParam;
       }
       router.push(redirectPath);

@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, connectAuthEmulator } from "firebase/auth";
-import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
+import { getFirestore, initializeFirestore, connectFirestoreEmulator } from "firebase/firestore";
+import { firestoreSettings } from "./firestoreSettings";
 import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
 
 const firebaseConfig = {
@@ -14,7 +15,20 @@ const firebaseConfig = {
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
-const db = getFirestore(app);
+// Long-polling only for the local emulator run; see firestoreSettings.ts for why.
+// initializeFirestore() throws if this app already has a Firestore (HMR re-evaluating
+// this module), in which case the existing instance is reused.
+const settings = firestoreSettings(process.env.NEXT_PUBLIC_USE_EMULATORS === 'true');
+let db: ReturnType<typeof getFirestore>;
+if (settings) {
+  try {
+    db = initializeFirestore(app, settings);
+  } catch {
+    db = getFirestore(app);
+  }
+} else {
+  db = getFirestore(app);
+}
 const functions = getFunctions(app, "europe-west6");
 
 // Use local emulators in development or when explicitly requested via env

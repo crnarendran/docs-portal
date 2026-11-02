@@ -2,6 +2,11 @@ name: Deploy (Staging)
 
 on:
   workflow_dispatch:
+    inputs:
+      force:
+        description: 'Deploy even if nothing changed since the last deploy'
+        type: boolean
+        default: false
   push:
     branches:
       - staging
@@ -12,10 +17,23 @@ on:
     # and nothing else triggers one, so this is the mechanism that keeps
     # the live site from going stale after a content-only sync.
     types: [docs-synced-staging]
+  schedule:
+    # AMB-4: sweep for content a dispatch deferred (see the change-check
+    # step). Cheap when idle: it exits in the first step, before any install.
+    # Note: scheduled workflows are read from the default branch (main).
+    - cron: '23 */3 * * *'
+
+# AMB-4: a burst of syncs queues many dispatches; only the newest matters
+# because every run builds the current state of Firestore. A cancelled run
+# writes no deploy marker (see the last step), so the next run redeploys.
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: true
 
 jobs:
   deploy-staging:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       # repository_dispatch events have no natural ref, so actions/checkout
       # defaults to this repo's default branch (main) — wrong for this
@@ -25,7 +43,24 @@ jobs:
         with:
           ref: staging
 
+      # AMB-4 — first step, before npm install: skip the whole job when
+      # nothing changed since the last successful deploy. Plain node, no
+      # dependencies. A push or manual run always deploys; a dispatch also
+      # waits out MIN_INTERVAL_MIN since the last deploy. If the check itself
+      # fails it fails open (deploys). See scripts/staging-deploy-check.mjs.
+      - name: AMB-4 — anything to deploy?
+        id: change
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DOCS_PORTAL_STAGING }}' > /tmp/sa.json
+          CODE_SHA=$(git rev-parse HEAD) node scripts/staging-deploy-check.mjs check
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa.json
+          FIREBASE_PROJECT_ID: docs-portal-staging
+          FORCE: ${{ inputs.force }}
+          MIN_INTERVAL_MIN: '60'
+
       - name: Build frontend
+        if: steps.change.outputs.changed == 'true'
         run: |
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DOCS_PORTAL_STAGING }}' > /tmp/sa.json
           npm install
@@ -39,12 +74,14 @@ jobs:
           FIREBASE_PROJECT_ID: docs-portal-staging
 
       - name: Build functions
+        if: steps.change.outputs.changed == 'true'
         run: cd functions && npm ci && npm run build
 
       # DP-12 self-test — regression-tests the leak guard's OWN matching
       # logic (no Firestore, no build) before trusting its verdict below. A
       # guard that stops failing on the real leak is worse than no guard.
       - name: DP-12 — leak guard self-test
+        if: steps.change.outputs.changed == 'true'
         run: npm run test:leak-guard
 
       # DP-12 — CI leak guard. The build above runs with the Admin SDK, which
@@ -52,6 +89,7 @@ jobs:
       # looks at what actually landed in the static export. A regression here
       # is silent otherwise — the login screen still renders fine either way.
       - name: DP-12 — verify no protected doc leaked into the build
+        if: steps.change.outputs.changed == 'true'
         run: |
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DOCS_PORTAL_STAGING }}' > /tmp/sa.json
           node scripts/check-protected-leak.mjs out
@@ -60,6 +98,7 @@ jobs:
           FIREBASE_PROJECT_ID: docs-portal-staging
 
       - name: Deploy to Firebase (Hosting, Firestore rules, Functions)
+        if: steps.change.outputs.changed == 'true'
         run: |
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DOCS_PORTAL_STAGING }}' > /tmp/sa.json
           npx -y firebase-tools@latest deploy \
@@ -67,3 +106,14 @@ jobs:
             --project staging --non-interactive --force
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa.json
+
+      # Record the fingerprint taken BEFORE the build (not a fresh one): if
+      # content changed while we were building, the next run sees a mismatch
+      # and deploys again, rather than that change being marked as shipped.
+      - name: AMB-4 — record deployed fingerprint
+        if: steps.change.outputs.changed == 'true' && steps.change.outputs.hash != ''
+        run: node scripts/staging-deploy-check.mjs record
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa.json
+          FIREBASE_PROJECT_ID: docs-portal-staging
+          DEPLOY_HASH: ${{ steps.change.outputs.hash }}

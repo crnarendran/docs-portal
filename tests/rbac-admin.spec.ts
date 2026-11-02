@@ -1,15 +1,14 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+import { signIn } from './support/auth';
 import { getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth, UserRecord } from 'firebase-admin/auth';
+import { EMULATOR_PROJECT, useEmulatorsForAdminSdk } from './support/emulator';
 
 // Initialize firebase admin for emulator if not already
 if (!getApps().length) {
-  process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
-  process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:9099';
-  initializeApp({
-    projectId: 'sanjeev-ai', // Strict requirement from skills
-  });
+  useEmulatorsForAdminSdk();
+  initializeApp({ projectId: EMULATOR_PROJECT });
 }
 
 const db = getFirestore();
@@ -109,30 +108,24 @@ test.describe('RBAC and Admin Screen E2E', () => {
     await new Promise(r => setTimeout(r, 3000));
   });
 
-  async function login(page, email, password) {
-    await page.goto('/login');
-
-    // Wait for React hydration to attach onChange listeners
-    await expect(page.getByTestId('login-email')).toBeEditable({ timeout: 5000 });
-
-    // Using Option B: Expect test-only email/password fields to be rendered when NEXT_PUBLIC_USE_EMULATORS='true'
-    await page.getByTestId('login-email').fill(email);
-    await page.getByTestId('login-password').fill(password);
-    await page.getByTestId('login-submit').click({ force: true });
-
-    // Wait for the auth context to update and render the sidebar's logged-in view
-    await expect(page.getByTestId('logout-btn')).toBeVisible({ timeout: 10000 });
+  // The emulator-only email/password form (NEXT_PUBLIC_USE_EMULATORS='true'),
+  // via the shared helper that waits for hydration and for the redirect.
+  async function login(page: Page, email: string, password: string) {
+    await signIn(page, email, password);
   }
 
   test('Access Denied (Unauthorized) - Standard user cannot view unauthorized project', async ({ page }) => {
     await login(page, 'standard1@example.com', 'password123');
 
-    // standard1 has no swarmkit access; the gated test doc requiresLogin,
-    // which routes through ProtectedDocViewer and checks accessibleProjects.
+    // standard1 has no swarmkit access. AuthGuard (not the viewer) enforces
+    // that for a protected doc: a signed-in user without project access is
+    // redirected to /unauthorized before the viewer ever renders, so the
+    // viewer's own unauthorized-message is not reachable from here.
     await page.goto('/swarmkit/test-gated-doc');
 
-    // Assertion: Should show Unauthorized or redirect
-    await expect(page.getByTestId('unauthorized-message')).toBeAttached({ timeout: 5000 });
+    await expect(page).toHaveURL(/\/unauthorized$/, { timeout: 10000 });
+    await expect(page.getByRole('heading', { name: '403 Unauthorized' })).toBeVisible();
+    await expect(page.getByText('GATED-SWARMKIT-BODY')).toHaveCount(0);
   });
 
   test('Project Dropdown Filtering - Only displays authorized projects', async ({ page }) => {
@@ -201,6 +194,7 @@ test.describe('RBAC and Admin Screen E2E', () => {
   });
 
   test('Admin Promotion - Toggling grants a standard user admin access', async ({ page }) => {
+    test.setTimeout(90000);
     // Authenticate as the existing admin
     await login(page, 'admin@example.com', 'password123');
 
@@ -213,8 +207,9 @@ test.describe('RBAC and Admin Screen E2E', () => {
 
     await toggleBtn.click({ force: true });
 
-    // Wait for the callable + refetch to resolve and flip the button's own label
-    await expect(toggleBtn).toContainText('Yes', { timeout: 10000 });
+    // Wait for the callable + refetch to resolve and flip the button's own
+    // label. The first call into a cold Functions emulator can take > 10 s.
+    await expect(toggleBtn).toContainText('Yes', { timeout: 45000 });
 
     await page.getByTestId('logout-btn').click({ force: true });
     await page.goto('/login');
@@ -227,6 +222,7 @@ test.describe('RBAC and Admin Screen E2E', () => {
   });
 
   test('Invite by Email - Pre-granted access applies on first sign-in', async ({ page }) => {
+    test.setTimeout(180000);
     const inviteEmail = 'invited-user@example.com';
 
     // Clean up a leftover invite/user from a previous run, if any.
@@ -258,6 +254,19 @@ test.describe('RBAC and Admin Screen E2E', () => {
       password: 'password123',
     });
 
+    // Wait for the BACKEND result before looking at the UI. The auth trigger
+    // runs asynchronously in the Functions emulator and can take far longer
+    // than the UI's 10 s window on a cold or slow machine (a Linux run saw the
+    // selector without 'keystar'). Polling the document separates "the
+    // function was late or did not apply the invite" from "the UI did not
+    // pick the grant up", which late-grant.spec.ts covers on its own.
+    await expect
+      .poll(async () => (await db.collection('portal_users').doc(invitedUser.uid).get()).data()?.accessibleProjects, {
+        timeout: 90000,
+        message: 'createPortalUserDocument should write the invite\'s projects to portal_users',
+      })
+      .toEqual(['keystar']);
+
     await page.getByTestId('logout-btn').click({ force: true });
     await page.goto('/login');
     await expect(page.getByTestId('login-email')).toBeVisible({ timeout: 5000 });
@@ -269,8 +278,12 @@ test.describe('RBAC and Admin Screen E2E', () => {
     await expect(projectSelector).toContainText('keystar', { timeout: 10000 });
 
     // The invite should be consumed (deleted) once applied.
-    const remainingInvite = await db.collection('portal_invites').doc(inviteEmail).get();
-    expect(remainingInvite.exists).toBe(false);
+    await expect
+      .poll(async () => (await db.collection('portal_invites').doc(inviteEmail).get()).exists, {
+        timeout: 30000,
+        message: 'the invite should be deleted once applied',
+      })
+      .toBe(false);
 
     await db.collection('portal_users').doc(invitedUser.uid).delete().catch(() => {});
   });
