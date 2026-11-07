@@ -17,7 +17,8 @@
 //
 // Env: GOOGLE_APPLICATION_CREDENTIALS (service-account JSON path),
 //      FIREBASE_PROJECT_ID, GITHUB_EVENT_NAME, CODE_SHA, FORCE ("true"),
-//      MIN_INTERVAL_MIN (default 60), GITHUB_OUTPUT, DEPLOY_HASH (record).
+//      MIN_INTERVAL_MIN (default 60), GITHUB_OUTPUT, DEPLOY_HASH and
+//      DEPLOY_ROUTES (record).
 import { createHash, createSign } from 'node:crypto';
 import { readFileSync, appendFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -35,18 +36,35 @@ export function fingerprint(docsByCollection, codeSha) {
   return createHash('sha256').update(lines.join('\n')).digest('hex');
 }
 
+// DP-22: fingerprint of the ROUTE SET only — which docs exist, ignoring when
+// they were last edited. The static export's page set is fixed at build time,
+// so a doc added or removed since the last deploy is the one kind of change
+// where waiting is visible as a 404.
+export function routesHash(docsByCollection) {
+  const names = new Set();
+  for (const rows of Object.values(docsByCollection)) for (const d of rows) names.add(d.name);
+  return createHash('sha256').update([...names].sort().join('\n')).digest('hex');
+}
+
 // A push to staging or a manual run is an explicit "deploy this" and always
 // goes ahead. repository_dispatch (fired after every Sync Docs run) and the
 // scheduled sweep only deploy when content actually changed; a dispatch also
 // waits out minIntervalMin since the last deploy, leaving the change for the
 // next scheduled sweep rather than burning a ~6 minute build per sync.
-export function decide({ eventName, force, hash, lastHash, lastDeployedAt, now, minIntervalMin }) {
+//
+// DP-22: that wait applies to EDITS of existing pages only. A dispatch that
+// adds or removes a page deploys immediately: sanjeev-ai's Sync Docs fails red
+// if the newest doc is still a 404 600 s after firing the dispatch, which a
+// deferral of up to minIntervalMin (60) can never satisfy. State recorded
+// before routes were tracked (lastRoutes undefined) counts as a route change,
+// so the first dispatch after this ships deploys once.
+export function decide({ eventName, force, hash, lastHash, lastDeployedAt, routes, lastRoutes, now, minIntervalMin }) {
   if (force) return { changed: true, reason: 'forced' };
   if (eventName === 'push' || eventName === 'workflow_dispatch') {
     return { changed: true, reason: `explicit ${eventName}` };
   }
   if (lastHash && hash === lastHash) return { changed: false, reason: 'unchanged since last deploy' };
-  if (eventName === 'repository_dispatch' && lastDeployedAt) {
+  if (eventName === 'repository_dispatch' && lastDeployedAt && routes === lastRoutes) {
     const ageMin = (now - new Date(lastDeployedAt).getTime()) / 60000;
     if (ageMin < minIntervalMin) {
       return {
@@ -54,6 +72,9 @@ export function decide({ eventName, force, hash, lastHash, lastDeployedAt, now, 
         reason: `changed, but last deploy was ${Math.floor(ageMin)} min ago (< ${minIntervalMin}); the scheduled sweep will pick it up`,
       };
     }
+  }
+  if (eventName === 'repository_dispatch' && lastDeployedAt && routes !== lastRoutes) {
+    return { changed: true, reason: 'pages added or removed: deploying now, not at the next sweep' };
   }
   return { changed: true, reason: lastHash ? 'content changed' : 'no previous deploy recorded' };
 }
@@ -106,18 +127,18 @@ export async function readState({ projectId, token, fetchImpl = fetch }) {
   if (res.status === 404) return {};
   if (!res.ok) throw new Error(`read state failed: ${res.status} ${await res.text()}`);
   const f = (await res.json()).fields || {};
-  return { lastHash: f.hash?.stringValue, lastDeployedAt: f.deployedAt?.timestampValue };
+  return { lastHash: f.hash?.stringValue, lastRoutes: f.routes?.stringValue, lastDeployedAt: f.deployedAt?.timestampValue };
 }
 
-export async function writeState(hash, { projectId, token, fetchImpl = fetch, now = new Date() }) {
+export async function writeState(hash, routes, { projectId, token, fetchImpl = fetch, now = new Date() }) {
   const url =
     `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${STATE_PATH}` +
-    '?updateMask.fieldPaths=hash&updateMask.fieldPaths=deployedAt';
+    '?updateMask.fieldPaths=hash&updateMask.fieldPaths=routes&updateMask.fieldPaths=deployedAt';
   const res = await fetchImpl(url, {
     method: 'PATCH',
     headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
     body: JSON.stringify({
-      fields: { hash: { stringValue: hash }, deployedAt: { timestampValue: now.toISOString() } },
+      fields: { hash: { stringValue: hash }, routes: { stringValue: routes || '' }, deployedAt: { timestampValue: now.toISOString() } },
     }),
   });
   if (!res.ok) throw new Error(`write state failed: ${res.status} ${await res.text()}`);
@@ -139,7 +160,7 @@ async function main() {
 
   if (mode === 'record') {
     if (!process.env.DEPLOY_HASH) throw new Error('DEPLOY_HASH not set');
-    await writeState(process.env.DEPLOY_HASH, ctx);
+    await writeState(process.env.DEPLOY_HASH, process.env.DEPLOY_ROUTES, ctx);
     console.log(`recorded deploy ${process.env.DEPLOY_HASH}`);
     return;
   }
@@ -147,16 +168,18 @@ async function main() {
   const docs = {};
   for (const col of COLLECTIONS) docs[col] = await listDocs(col, ctx);
   const hash = fingerprint(docs, process.env.CODE_SHA);
+  const routes = routesHash(docs);
   const state = await readState(ctx);
   const verdict = decide({
     eventName: process.env.GITHUB_EVENT_NAME,
     force: process.env.FORCE === 'true',
     hash,
+    routes,
     ...state,
     now: Date.now(),
     minIntervalMin: Number(process.env.MIN_INTERVAL_MIN || 60),
   });
-  setOutputs({ changed: verdict.changed, hash, reason: verdict.reason });
+  setOutputs({ changed: verdict.changed, hash, routes, reason: verdict.reason });
 }
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);

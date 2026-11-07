@@ -52,6 +52,11 @@ test('every step after the check is gated on it, so an unchanged run does nothin
   }
 });
 
+test('DP-22: the route fingerprint taken before the build is what gets recorded', opts, () => {
+  const record = steps().find((x) => /record deployed fingerprint/.test(x.name || ''));
+  assert.equal(record.env.DEPLOY_ROUTES, '${{ steps.change.outputs.routes }}');
+});
+
 test('DP-12 leak guard still gates the deploy, in order', opts, () => {
   const names = steps().map((x) => x.name || '');
   const leak = names.findIndex((n) => /verify no protected doc leaked/.test(n));
