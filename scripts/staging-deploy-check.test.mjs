@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync } from 'node:crypto';
-import { fingerprint, decide, listDocs, readState, writeState, getAccessToken } from './staging-deploy-check.mjs';
+import { fingerprint, routesHash, decide, listDocs, readState, writeState, getAccessToken } from './staging-deploy-check.mjs';
 
 const docs = (...rows) => rows.map(([name, updateTime]) => ({ name, updateTime }));
 const NOW = Date.parse('2026-11-02T12:00:00Z');
@@ -46,6 +46,56 @@ test('decide: a dispatch within the interval is deferred, the schedule sweep is 
   assert.equal(decide({ ...recent, eventName: 'schedule' }).changed, true);
 });
 
+// DP-22: the interval throttle must not hold back a NEW page. The Sync Docs
+// check in sanjeev-ai polls the newest doc's URL for 600 s after firing the
+// dispatch; a deferred rebuild (up to MIN_INTERVAL_MIN) can never beat that.
+test('routesHash: depends on which docs exist, not on when they were edited', () => {
+  const a = { portal_docs: docs(['a', '1']), portal_docs_dev: docs(['c', '3']) };
+  assert.equal(routesHash(a), routesHash({ portal_docs_dev: docs(['c', '9']), portal_docs: docs(['a', '2']) }));
+  assert.notEqual(routesHash(a), routesHash({ ...a, portal_docs: docs(['a', '1'], ['b', '1']) }));
+  assert.notEqual(routesHash(a), routesHash({ ...a, portal_docs_dev: [] }));
+});
+
+test('decide: a dispatch that adds or removes a page deploys now, even inside the interval', () => {
+  const recent = { ...base, eventName: 'repository_dispatch', lastDeployedAt: '2026-11-02T11:55:00Z', routes: 'r2', lastRoutes: 'r1' };
+  const v = decide(recent);
+  assert.equal(v.changed, true);
+  assert.match(v.reason, /page/);
+});
+
+test('decide: an edit to an existing page is still deferred inside the interval', () => {
+  const recent = { ...base, eventName: 'repository_dispatch', lastDeployedAt: '2026-11-02T11:55:00Z', routes: 'r1', lastRoutes: 'r1' };
+  const v = decide(recent);
+  assert.equal(v.changed, false);
+  assert.match(v.reason, /scheduled sweep/);
+});
+
+test('decide: state recorded before routes were tracked counts as a route change (deploys once)', () => {
+  const recent = { ...base, eventName: 'repository_dispatch', lastDeployedAt: '2026-11-02T11:55:00Z', routes: 'r1', lastRoutes: undefined };
+  assert.equal(decide(recent).changed, true);
+});
+
+test('decide: the route bypass never resurrects an unchanged run', () => {
+  const v = decide({ ...base, eventName: 'repository_dispatch', hash: 'h1', routes: 'r2', lastRoutes: 'r1' });
+  assert.equal(v.changed, false);
+});
+
+test('readState / writeState carry the routes hash', async () => {
+  const ok = json({ fields: { hash: { stringValue: 'h' }, routes: { stringValue: 'r' }, deployedAt: { timestampValue: '2026-11-02T00:00:00Z' } } });
+  assert.deepEqual(await readState({ projectId: 'p', token: 't', fetchImpl: async () => ok }), {
+    lastHash: 'h',
+    lastRoutes: 'r',
+    lastDeployedAt: '2026-11-02T00:00:00Z',
+  });
+  let seen;
+  await writeState('abc', 'rts', {
+    projectId: 'p', token: 't', now: new Date('2026-11-02T00:00:00Z'),
+    fetchImpl: async (url, init) => ((seen = { url, init }), json({})),
+  });
+  assert.match(seen.url, /updateMask\.fieldPaths=routes/);
+  assert.deepEqual(JSON.parse(seen.init.body).fields.routes, { stringValue: 'rts' });
+});
+
 test('decide: a dispatch past the interval, or with no prior deploy, deploys', () => {
   assert.equal(decide({ ...base, eventName: 'repository_dispatch' }).changed, true);
   assert.equal(decide({ ...base, eventName: 'repository_dispatch', lastHash: undefined, lastDeployedAt: undefined }).changed, true);
@@ -75,19 +125,20 @@ test('readState: 404 means no previous deploy; otherwise parses hash and time', 
   const ok = json({ fields: { hash: { stringValue: 'h' }, deployedAt: { timestampValue: '2026-11-02T00:00:00Z' } } });
   assert.deepEqual(await readState({ projectId: 'p', token: 't', fetchImpl: async () => ok }), {
     lastHash: 'h',
+    lastRoutes: undefined,
     lastDeployedAt: '2026-11-02T00:00:00Z',
   });
   await assert.rejects(readState({ projectId: 'p', token: 't', fetchImpl: async () => json({}, 403) }), /403/);
 });
 
-test('writeState: PATCHes only hash + deployedAt', async () => {
+test('writeState: PATCHes only hash + routes + deployedAt', async () => {
   let seen;
-  await writeState('abc', {
+  await writeState('abc', 'rts', {
     projectId: 'p', token: 't', now: new Date('2026-11-02T00:00:00Z'),
     fetchImpl: async (url, init) => ((seen = { url, init }), json({})),
   });
   assert.equal(seen.init.method, 'PATCH');
-  assert.match(seen.url, /portal_deploy_state\/staging\?updateMask\.fieldPaths=hash&updateMask\.fieldPaths=deployedAt/);
+  assert.match(seen.url, /portal_deploy_state\/staging\?updateMask\.fieldPaths=hash&updateMask\.fieldPaths=routes&updateMask\.fieldPaths=deployedAt/);
   assert.deepEqual(JSON.parse(seen.init.body).fields.hash, { stringValue: 'abc' });
 });
 

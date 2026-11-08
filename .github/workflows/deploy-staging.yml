@@ -45,9 +45,12 @@ jobs:
 
       # AMB-4 — first step, before npm install: skip the whole job when
       # nothing changed since the last successful deploy. Plain node, no
-      # dependencies. A push or manual run always deploys; a dispatch also
-      # waits out MIN_INTERVAL_MIN since the last deploy. If the check itself
-      # fails it fails open (deploys). See scripts/staging-deploy-check.mjs.
+      # dependencies. A push or manual run always deploys; a dispatch that only
+      # EDITS existing pages also waits out MIN_INTERVAL_MIN since the last
+      # deploy, but one that adds or removes a page (DP-22) deploys at once —
+      # sanjeev-ai's Sync Docs check gives a new page 600 s to appear. If the
+      # check itself fails it fails open (deploys). See
+      # scripts/staging-deploy-check.mjs.
       - name: AMB-4 — anything to deploy?
         id: change
         run: |
@@ -117,3 +120,4 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa.json
           FIREBASE_PROJECT_ID: docs-portal-staging
           DEPLOY_HASH: ${{ steps.change.outputs.hash }}
+          DEPLOY_ROUTES: ${{ steps.change.outputs.routes }}
